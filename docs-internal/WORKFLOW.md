@@ -17,9 +17,21 @@ We maintain custom modifications on top of the upstream releases.
 ### Making Changes
 
 1. **Edit code** — via Claude Code in the terminal or Xcode
-2. **Build & run** — open `Claude Usage.xcodeproj` in Xcode, Cmd+R
-   (or from terminal: `xcodebuild -project "Claude Usage.xcodeproj" -scheme "Claude Usage" -configuration Debug build`)
-3. **Commit & push** — standard git workflow to `origin/main`
+2. **Build** — from terminal:
+   ```bash
+   cd ~/Developer/Claude-Usage-Tracker
+   xcodebuild -project "Claude Usage.xcodeproj" -scheme "Claude Usage" -configuration Debug build CODE_SIGN_IDENTITY="-" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO
+   ```
+3. **Install to /Applications** — must delete first to bust macOS cache:
+   ```bash
+   killall "Claude Usage"
+   rm -rf "/Applications/Claude Usage.app"
+   cp -R ~/Library/Developer/Xcode/DerivedData/Claude_Usage-*/Build/Products/Debug/Claude\ Usage.app "/Applications/Claude Usage.app"
+   /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -f "/Applications/Claude Usage.app"
+   open "/Applications/Claude Usage.app"
+   ```
+   **Important:** plain `cp -R` over the existing app causes macOS to cache the old binary. Always `rm -rf` first.
+4. **Commit & push** — standard git workflow to `origin/main`
 
 ### Pulling Upstream Updates
 
