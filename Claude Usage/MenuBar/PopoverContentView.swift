@@ -198,6 +198,9 @@ struct PopoverContentView: View {
                     .transition(.opacity)
             }
 
+            // Peak hours schedule + weekly trend
+            PopoverInfoFooter()
+
         }
         .padding(.bottom, 8)
         .frame(width: 280)
@@ -955,6 +958,63 @@ struct Insight {
     let color: Color
     let title: String
     let description: String
+}
+
+// MARK: - Popover Info Footer (peak schedule + weekly trend)
+
+struct PopoverInfoFooter: View {
+    @StateObject private var profileManager = ProfileManager.shared
+
+    private var weeklyTrend: String? {
+        guard let profileId = profileManager.activeProfile?.id else { return nil }
+        let snapshots = UsageHistoryService.shared.getWeeklySnapshots(for: profileId)
+        // Need at least 2 weekly snapshots to compare
+        guard snapshots.count >= 2 else { return nil }
+
+        let current = snapshots[0].weeklyPercentage ?? 0
+        let previous = snapshots[1].weeklyPercentage ?? 0
+        guard previous > 0 else { return nil }
+
+        let change = current - previous
+        if abs(change) < 2 {
+            return "≈ same as last week"
+        } else if change > 0 {
+            return "↑ \(Int(change))% more than last week"
+        } else {
+            return "↓ \(Int(abs(change)))% less than last week"
+        }
+    }
+
+    var body: some View {
+        VStack(spacing: 3) {
+            PopoverDivider()
+
+            HStack {
+                Image(systemName: "clock")
+                    .font(.system(size: 8))
+                    .foregroundColor(.secondary)
+                Text("Peak: \(PeakHoursHelper.localScheduleString) Mon–Fri")
+                    .font(.system(size: 9))
+                    .foregroundColor(.secondary)
+                Spacer()
+            }
+            .padding(.horizontal, 14)
+            .padding(.top, 4)
+
+            if let trend = weeklyTrend {
+                HStack {
+                    Image(systemName: "chart.line.uptrend.xyaxis")
+                        .font(.system(size: 8))
+                        .foregroundColor(.secondary)
+                    Text(trend)
+                        .font(.system(size: 9))
+                        .foregroundColor(.secondary)
+                    Spacer()
+                }
+                .padding(.horizontal, 14)
+            }
+        }
+    }
 }
 
 // MARK: - Smart Footer

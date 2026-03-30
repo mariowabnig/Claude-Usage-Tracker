@@ -1,4 +1,5 @@
 import Foundation
+import UserNotifications
 
 /// Determines whether the current time falls within Anthropic's peak hours.
 /// Peak hours: weekdays (Mon–Fri), 5:00 AM – 11:00 AM Pacific Time.
@@ -70,6 +71,61 @@ enum PeakHoursHelper {
         formatter.timeZone = .current  // user's local timezone
         formatter.dateFormat = "HH:mm"
         return formatter.string(from: target)
+    }
+
+    /// Returns peak hours expressed in the user's local timezone, e.g. "15:00–21:00".
+    static var localScheduleString: String {
+        guard let cal = pacificCalendar else { return "5:00–11:00 AM PT" }
+        let now = Date()
+        // Build today's peak start and end in Pacific, then format in local tz
+        let today = cal.startOfDay(for: now)
+        guard let start = cal.date(bySettingHour: peakStartHour, minute: 0, second: 0, of: today),
+              let end = cal.date(bySettingHour: peakEndHour, minute: 0, second: 0, of: today) else {
+            return "5:00–11:00 AM PT"
+        }
+        let fmt = DateFormatter()
+        fmt.timeZone = .current
+        fmt.dateFormat = "HH:mm"
+        return "\(fmt.string(from: start))–\(fmt.string(from: end))"
+    }
+
+    // MARK: - Peak Hours Notification
+
+    private static let peakNotificationSentKey = "peakHoursNotificationSentDate"
+
+    /// Checks if we should send a "peak hours starting soon" notification.
+    /// Call this on every refresh cycle. Sends at most once per peak window.
+    static func checkAndSendPeakWarning() {
+        guard let cd = countdown() else { return }
+
+        // Only warn when off-peak and within 15 minutes of peak start
+        guard !cd.isPeak, cd.timeRemaining > 0, cd.timeRemaining <= 15 * 60 else { return }
+
+        // Don't send if we already sent today
+        let defaults = UserDefaults.standard
+        if let lastSent = defaults.object(forKey: peakNotificationSentKey) as? Date {
+            // If last sent was within 6 hours, skip (covers one peak window)
+            if Date().timeIntervalSince(lastSent) < 6 * 3600 { return }
+        }
+
+        let localTime = localTargetTime() ?? ""
+        let content = UNMutableNotificationContent()
+        content.title = "Peak Hours Starting Soon"
+        content.body = "Peak hours begin at \(localTime) — usage will cost more. Heavy work now will be cheaper."
+        content.sound = .default
+        content.categoryIdentifier = "PEAK_HOURS_ALERT"
+
+        let request = UNNotificationRequest(
+            identifier: "peak_hours_warning",
+            content: content,
+            trigger: nil
+        )
+
+        UNUserNotificationCenter.current().add(request) { error in
+            if error == nil {
+                defaults.set(Date(), forKey: peakNotificationSentKey)
+            }
+        }
     }
 
     // MARK: - Private

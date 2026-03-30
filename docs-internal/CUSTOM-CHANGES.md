@@ -22,30 +22,25 @@ This file helps track what we've changed so upstream merges stay manageable.
 - `countdown()` — returns time remaining until peak ends (if active) or starts (if off-peak)
 - `formatCountdown()` — formats interval as "Xh Ym"
 - `localTargetTime()` — returns the end/start time in the user's local timezone ("HH:mm")
+- `localScheduleString` — peak hours in local time, e.g. "15:00–21:00"
+- `checkAndSendPeakWarning()` — sends macOS notification 15 min before peak starts (once per window)
 
 **Modified:** `Shared/Extensions/Color+AppColors.swift`
 - Added `peakAmber` color (warm yellow-orange, adapts to light/dark mode)
-- Added `safeDynamic` on both `Color` and `NSColor` (used internally, not for bar colors)
+- Added `safeDynamic` on both `Color` and `NSColor` (used internally)
 
 **Modified:** `MenuBar/PopoverContentView.swift`
-- Added `PeakHoursBanner` view in `SmartUsageDashboard`:
-  - **During peak:** amber banner — "Peak Hours — ends in 2h 15m (20:00)" with local time
-  - **Within 2h of peak:** subtle gray banner — "Peak Hours in 1h 30m (15:00)" with local time
-  - **Otherwise:** no banner
-  - Refreshes every 30 seconds
-- Added `PeakStripes` view — diagonal amber stripes overlaid on progress bars during peak
-- Bar colors remain green/orange/red based on usage level (not overridden during peak)
+- `PeakHoursBanner` — countdown banner with local end/start time
+- `PeakStripes` — diagonal amber stripes on progress bars during peak
+- `PopoverInfoFooter` — peak schedule line + weekly usage trend
+- Bar colors remain green/orange/red (stripes overlay, don't replace)
 
 **Modified:** `MenuBar/MenuBarIconRenderer.swift`
-- **Progress bar style (W):** light grey striped background + amber diagonal stripes on fill during peak
-- **Battery style (S):** light grey background fill + amber diagonal stripes on fill during peak
-- Normal colors preserved — stripes overlay on top, so usage level is still visible
+- Progress bar style (W): light grey striped background + amber stripes on fill during peak
+- Battery style (S): light grey background fill + amber stripes on fill during peak
 
-### Design decisions
-- Bar fill colors stay green/orange/red — they reflect how far along usage is, which must remain readable
-- Amber stripes are the peak indicator — visible without obscuring the usage information
-- Menu bar background turns light grey with stripes during peak for added visibility
-- CLI account indicators, system status, and overage balance colors are unchanged
+**Modified:** `MenuBar/MenuBarManager.swift`
+- Hooked `PeakHoursHelper.checkAndSendPeakWarning()` into refresh cycle
 
 ---
 
@@ -55,26 +50,49 @@ This file helps track what we've changed so upstream merges stay manageable.
 **Purpose:** Show how much faster or slower you need to use Claude to perfectly hit 100% by reset time.
 
 **Modified:** `MenuBar/PopoverContentView.swift`
-- Added `paceGuidanceText` and `paceGuidanceColor` computed properties to `UsageRow`
-- Shows below the reset time in each usage card:
-  - **"▸ You can go 2.5x faster"** — well under budget, room to use more
-  - **"▸ Perfect pace for 100%"** — on track to use the full allocation
-  - **"▸ Slow down to 70% of current pace"** — burning too fast (orange/red text)
-  - **"▸ You can go much faster"** — when multiplier exceeds 5x
-- Only shows when enough time has elapsed (>5%) and usage is meaningful (>1%)
-- Colors: neutral (secondary) when on track or under, orange when mildly over, red when significantly over
+- `paceGuidanceText` / `paceGuidanceColor` in `UsageRow`
+- Shows: "▸ You can go 2.5x faster" / "▸ Perfect pace" / "▸ Slow down to 70%"
+- Only when >5% elapsed and >1% used
 
 ---
 
-## 3. Auto-Update Disabled
+## 3. Peak Hours Notification
 
 **Date:** 2026-03-30
-**Purpose:** Prevent Sparkle from automatically downloading and installing updates, which would overwrite our custom-built app with the stock upstream binary.
+**Purpose:** Get a macOS notification ~15 minutes before peak hours begin.
+
+**Modified:** `Shared/Utilities/PeakHoursHelper.swift`
+- `checkAndSendPeakWarning()` — fires once per peak window, triggered by refresh cycle
+
+---
+
+## 4. Peak Hours Schedule in Footer
+
+**Date:** 2026-03-30
+**Purpose:** Always-visible reference for when peak hours are in your local timezone.
+
+**Modified:** `MenuBar/PopoverContentView.swift`
+- `PopoverInfoFooter` — shows "Peak: 15:00–21:00 Mon–Fri" at bottom of popover
+
+---
+
+## 5. Weekly Usage Trend
+
+**Date:** 2026-03-30
+**Purpose:** Quick comparison of this week's usage vs last week.
+
+**Modified:** `MenuBar/PopoverContentView.swift`
+- `PopoverInfoFooter` — compares last 2 weekly snapshots, shows "↑ 12% more than last week"
+
+---
+
+## 6. Auto-Update Disabled
+
+**Date:** 2026-03-30
+**Purpose:** Prevent Sparkle auto-download from overwriting our custom build.
 
 **Modified:** `Shared/Services/UpdateManager.swift`
-- Set `updaterController.updater.automaticallyDownloadsUpdates = false` on init
-- Sparkle still checks for new versions and shows a notification
-- To apply an upstream update: `git fetch upstream && git merge upstream/main`, then rebuild
+- `automaticallyDownloadsUpdates = false` — still checks and notifies
 
 ---
 
@@ -82,8 +100,9 @@ This file helps track what we've changed so upstream merges stay manageable.
 
 | File | Change |
 |------|--------|
-| `Shared/Utilities/PeakHoursHelper.swift` | NEW — peak hours detection, countdown, local time |
-| `Shared/Extensions/Color+AppColors.swift` | Added peakAmber, safeDynamic colors |
-| `MenuBar/PopoverContentView.swift` | Peak banner, striped bars, pace guidance |
-| `MenuBar/MenuBarIconRenderer.swift` | Striped bars + grey background during peak (battery + progress bar) |
+| `Shared/Utilities/PeakHoursHelper.swift` | NEW — peak detection, countdown, notifications |
+| `Shared/Extensions/Color+AppColors.swift` | peakAmber, safeDynamic colors |
+| `MenuBar/PopoverContentView.swift` | Banner, stripes, pace, footer (schedule + trend) |
+| `MenuBar/MenuBarIconRenderer.swift` | Striped bars during peak (battery + progress bar) |
+| `MenuBar/MenuBarManager.swift` | Peak warning notification hook |
 | `Shared/Services/UpdateManager.swift` | Disabled auto-download |

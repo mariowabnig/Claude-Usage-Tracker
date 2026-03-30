@@ -1101,6 +1101,9 @@ class MenuBarManager: NSObject, ObservableObject {
                             settings: profile.notificationSettings
                         )
 
+                        // Check if peak hours are starting soon
+                        PeakHoursHelper.checkAndSendPeakWarning()
+
                         // Check if auto-switch should trigger
                         self.checkAutoSwitchIfNeeded(usage: newUsage, currentProfile: profile)
                     }
