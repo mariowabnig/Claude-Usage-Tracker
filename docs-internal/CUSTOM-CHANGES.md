@@ -96,13 +96,65 @@ This file helps track what we've changed so upstream merges stay manageable.
 
 ---
 
+## 7. German Localization
+
+**Date:** 2026-03-30
+**Purpose:** All custom peak/pace text was in English while the rest of the UI is German.
+
+**Modified:** `Resources/de.lproj/Localizable.strings`, `Resources/en.lproj/Localizable.strings`
+- Added `peak.*` keys: banner, footer, pace, notifications, tooltips
+- German: "Stoßzeiten", "Du kannst 2.5x schneller arbeiten", "Perfektes Tempo für 100%", etc.
+
+**Modified:** `MenuBar/PopoverContentView.swift`, `Shared/Utilities/PeakHoursHelper.swift`
+- All hardcoded English strings replaced with `.localized` calls
+
+---
+
+## 8. Weekend Indicator
+
+**Date:** 2026-03-30
+**Purpose:** On weekends, show "Heute keine Stoßzeiten" instead of the peak schedule, so you know you can go full throttle.
+
+**Modified:** `MenuBar/PopoverContentView.swift`
+- `PopoverInfoFooter` checks `isWeekend` — swaps clock icon for sun icon and shows localized "no peak today"
+
+---
+
+## 9. Menu Bar Tooltips
+
+**Date:** 2026-03-30
+**Purpose:** Hovering over W or S icons shows usage % and peak status without opening the popover.
+
+**Modified:** `MenuBar/StatusBarUIManager.swift`
+- `button.toolTip` set on every icon update (both `updateAllButtons` and `updateButton`)
+- Shows: "Session: 28% genutzt" + "Stoßzeiten aktiv — endet 21:00" during peak
+
+**Modified:** `Shared/Utilities/PeakHoursHelper.swift`
+- Added `tooltip(metricName:percentage:)` helper
+
+---
+
+## 10. Build Script
+
+**Date:** 2026-03-30
+**Purpose:** One command to build, install, and relaunch the custom app.
+
+**New file:** `scripts/build-and-install.sh`
+- Runs `xcodebuild`, kills old app, `rm -rf` + `cp -R` to `/Applications`, `lsregister`, launches
+
+---
+
 ## Files Modified (summary)
 
 | File | Change |
 |------|--------|
-| `Shared/Utilities/PeakHoursHelper.swift` | NEW — peak detection, countdown, notifications |
+| `Shared/Utilities/PeakHoursHelper.swift` | NEW — peak detection, countdown, notifications, tooltips |
 | `Shared/Extensions/Color+AppColors.swift` | peakAmber, safeDynamic colors |
-| `MenuBar/PopoverContentView.swift` | Banner, stripes, pace, footer (schedule + trend) |
+| `MenuBar/PopoverContentView.swift` | Banner, stripes, pace, footer (schedule + trend + weekend) |
 | `MenuBar/MenuBarIconRenderer.swift` | Striped bars during peak (battery + progress bar) |
 | `MenuBar/MenuBarManager.swift` | Peak warning notification hook |
+| `MenuBar/StatusBarUIManager.swift` | Tooltips on menu bar icons |
 | `Shared/Services/UpdateManager.swift` | Disabled auto-download |
+| `Resources/en.lproj/Localizable.strings` | Peak hours localization keys |
+| `Resources/de.lproj/Localizable.strings` | German translations |
+| `scripts/build-and-install.sh` | NEW — build + install script |
