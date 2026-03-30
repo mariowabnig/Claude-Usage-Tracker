@@ -1,5 +1,6 @@
 import SwiftUI
 import Charts
+import Combine
 
 // MARK: - Always-active vibrancy background
 struct VisualEffectBackground: NSViewRepresentable {
@@ -577,6 +578,9 @@ struct SmartUsageDashboard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
+            // Peak hours banner with countdown
+            PeakHoursBanner()
+
             // Primary: Session Usage
             UsageRow(
                 title: "menubar.session_usage".localized,
@@ -733,6 +737,51 @@ struct UsageRow: View {
         }
     }
 
+    /// How much faster or slower you can go to hit exactly 100% by reset.
+    private var paceGuidanceText: String? {
+        guard let elapsed = rawElapsedFraction,
+              elapsed >= 0.05, elapsed < 1.0,
+              usedPercentage > 1 else { return nil }
+
+        let used = usedPercentage / 100.0
+        let projected = used / elapsed  // projected end-of-period usage as fraction of limit
+
+        if projected < 0.01 { return nil }
+
+        // paceMultiplier: how much you can scale your current rate
+        // >1 means you can go faster, <1 means slow down
+        let multiplier = 1.0 / projected
+
+        if multiplier > 5.0 {
+            return "▸ You can go much faster"
+        } else if multiplier > 1.05 {
+            return String(format: "▸ You can go %.1fx faster", multiplier)
+        } else if multiplier >= 0.95 {
+            return "▸ Perfect pace for 100%"
+        } else {
+            // Need to slow down — show as percentage of current pace
+            let pct = Int(multiplier * 100)
+            return "▸ Slow down to \(pct)% of current pace"
+        }
+    }
+
+    private var paceGuidanceColor: Color {
+        guard let elapsed = rawElapsedFraction,
+              elapsed >= 0.05, elapsed < 1.0,
+              usedPercentage > 1 else { return .secondary }
+
+        let projected = (usedPercentage / 100.0) / elapsed
+        let multiplier = 1.0 / projected
+
+        if multiplier >= 0.95 {
+            return .secondary
+        } else if multiplier >= 0.7 {
+            return .orange
+        } else {
+            return .red
+        }
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 5) {
             // Title row with percentage
@@ -772,14 +821,22 @@ struct UsageRow: View {
 
             // Progress bar
             GeometryReader { geometry in
+                let fillWidth = geometry.size.width * min(displayPercentage / 100.0, 1.0)
                 ZStack(alignment: .leading) {
                     RoundedRectangle(cornerRadius: 2.5)
                         .fill(Color.primary.opacity(0.08))
 
-                    RoundedRectangle(cornerRadius: 2.5)
-                        .fill(statusColor)
-                        .frame(width: geometry.size.width * min(displayPercentage / 100.0, 1.0))
-                        .animation(.easeInOut(duration: 0.6), value: displayPercentage)
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 2.5)
+                            .fill(statusColor)
+
+                        if PeakHoursHelper.isPeakHours {
+                            PeakStripes()
+                                .clipShape(RoundedRectangle(cornerRadius: 2.5))
+                        }
+                    }
+                    .frame(width: fillWidth)
+                    .animation(.easeInOut(duration: 0.6), value: displayPercentage)
                 }
                 .overlay(alignment: .leading) {
                     if let fraction = timeMarkerFraction {
@@ -797,6 +854,13 @@ struct UsageRow: View {
                 Text(resetTimeText(for: reset))
                     .font(.system(size: 9))
                     .foregroundColor(.secondary)
+            }
+
+            // Pace guidance
+            if let paceText = paceGuidanceText {
+                Text(paceText)
+                    .font(.system(size: 9, weight: .medium))
+                    .foregroundColor(paceGuidanceColor)
             }
         }
         .padding(.horizontal, 10)
@@ -1355,5 +1419,104 @@ struct StatusBannerView: View {
         .padding(.horizontal, 10)
         .padding(.top, 4)
         .onTapGesture { onTap?() }
+    }
+}
+
+// MARK: - Peak Hours Stripe Overlay
+
+/// Diagonal amber stripes overlaid on progress bars during peak hours.
+/// The normal usage color (green/orange/red) shows through between stripes.
+struct PeakStripes: View {
+    var stripeWidth: CGFloat = 2
+    var gapWidth: CGFloat = 3
+    var angle: Double = 45
+
+    var body: some View {
+        GeometryReader { geometry in
+            let total = stripeWidth + gapWidth
+            // Extend canvas to cover diagonal overflow
+            let canvasSize = max(geometry.size.width, geometry.size.height) * 2
+            Path { path in
+                var x: CGFloat = -canvasSize
+                while x < canvasSize {
+                    path.addRect(CGRect(x: x, y: -canvasSize / 2, width: stripeWidth, height: canvasSize * 2))
+                    x += total
+                }
+            }
+            .fill(Color.peakAmber.opacity(0.55))
+            .rotationEffect(.degrees(angle))
+            .frame(width: canvasSize, height: canvasSize)
+            .offset(x: (geometry.size.width - canvasSize) / 2, y: (geometry.size.height - canvasSize) / 2)
+        }
+        .clipped()
+    }
+}
+
+// MARK: - Peak Hours Banner
+
+struct PeakHoursBanner: View {
+    @State private var isPeak: Bool = PeakHoursHelper.isPeakHours
+    @State private var timeRemaining: TimeInterval = 0
+    @State private var localTime: String = ""
+    private let timer = Timer.publish(every: 30, on: .main, in: .common).autoconnect()
+
+    var body: some View {
+        VStack {
+            if isPeak {
+                HStack(spacing: 6) {
+                    Image(systemName: "bolt.fill")
+                        .font(.system(size: 10))
+                    Text(peakText)
+                        .font(.system(size: 10, weight: .medium))
+                }
+                .foregroundColor(.black)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 5)
+                .background(
+                    RoundedRectangle(cornerRadius: 6)
+                        .fill(Color.peakAmber.opacity(0.85))
+                )
+            } else if timeRemaining > 0 && timeRemaining <= 2 * 3600 {
+                HStack(spacing: 6) {
+                    Image(systemName: "clock")
+                        .font(.system(size: 10))
+                    Text(offPeakText)
+                        .font(.system(size: 10, weight: .medium))
+                }
+                .foregroundColor(.secondary)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 5)
+                .background(
+                    RoundedRectangle(cornerRadius: 6)
+                        .fill(Color.primary.opacity(0.05))
+                )
+            }
+        }
+        .onAppear { update() }
+        .onReceive(timer) { _ in update() }
+    }
+
+    private var peakText: String {
+        let base = "Peak Hours — ends in \(PeakHoursHelper.formatCountdown(timeRemaining))"
+        if !localTime.isEmpty {
+            return "\(base) (\(localTime))"
+        }
+        return base
+    }
+
+    private var offPeakText: String {
+        let base = "Peak Hours in \(PeakHoursHelper.formatCountdown(timeRemaining))"
+        if !localTime.isEmpty {
+            return "\(base) (\(localTime))"
+        }
+        return base
+    }
+
+    private func update() {
+        isPeak = PeakHoursHelper.isPeakHours
+        if let cd = PeakHoursHelper.countdown() {
+            timeRemaining = cd.timeRemaining
+        }
+        localTime = PeakHoursHelper.localTargetTime() ?? ""
     }
 }

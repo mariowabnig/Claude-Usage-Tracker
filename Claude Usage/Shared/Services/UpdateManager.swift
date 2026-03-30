@@ -61,10 +61,13 @@ final class UpdateManager: ObservableObject {
             userDriverDelegate: userDriver
         )
 
+        // Disable automatic download/install — we build from source, so auto-update
+        // would overwrite our custom fork. Sparkle will still check and notify.
+        updaterController.updater.automaticallyDownloadsUpdates = false
         automaticChecksEnabled = updaterController.updater.automaticallyChecksForUpdates
         canCheckForUpdates = updaterController.updater.canCheckForUpdates
 
-        LoggingService.shared.logInfo("Update manager initialized with gentle reminders")
+        LoggingService.shared.logInfo("Update manager initialized with gentle reminders (auto-download disabled for custom fork)")
     }
 
     /// Manually check for updates
