@@ -756,15 +756,14 @@ struct UsageRow: View {
         let multiplier = 1.0 / projected
 
         if multiplier > 5.0 {
-            return "▸ You can go much faster"
+            return "peak.pace.much_faster".localized
         } else if multiplier > 1.05 {
-            return String(format: "▸ You can go %.1fx faster", multiplier)
+            return String(format: "peak.pace.faster".localized, multiplier)
         } else if multiplier >= 0.95 {
-            return "▸ Perfect pace for 100%"
+            return "peak.pace.perfect".localized
         } else {
-            // Need to slow down — show as percentage of current pace
             let pct = Int(multiplier * 100)
-            return "▸ Slow down to \(pct)% of current pace"
+            return String(format: "peak.pace.slow_down".localized, pct)
         }
     }
 
@@ -965,10 +964,14 @@ struct Insight {
 struct PopoverInfoFooter: View {
     @StateObject private var profileManager = ProfileManager.shared
 
+    private var isWeekend: Bool {
+        let weekday = Calendar.current.component(.weekday, from: Date())
+        return weekday == 1 || weekday == 7
+    }
+
     private var weeklyTrend: String? {
         guard let profileId = profileManager.activeProfile?.id else { return nil }
         let snapshots = UsageHistoryService.shared.getWeeklySnapshots(for: profileId)
-        // Need at least 2 weekly snapshots to compare
         guard snapshots.count >= 2 else { return nil }
 
         let current = snapshots[0].weeklyPercentage ?? 0
@@ -977,11 +980,11 @@ struct PopoverInfoFooter: View {
 
         let change = current - previous
         if abs(change) < 2 {
-            return "≈ same as last week"
+            return "peak.trend.same".localized
         } else if change > 0 {
-            return "↑ \(Int(change))% more than last week"
+            return String(format: "peak.trend.more".localized, Int(change))
         } else {
-            return "↓ \(Int(abs(change)))% less than last week"
+            return String(format: "peak.trend.less".localized, Int(abs(change)))
         }
     }
 
@@ -990,10 +993,12 @@ struct PopoverInfoFooter: View {
             PopoverDivider()
 
             HStack {
-                Image(systemName: "clock")
+                Image(systemName: isWeekend ? "sun.max" : "clock")
                     .font(.system(size: 8))
                     .foregroundColor(.secondary)
-                Text("Peak: \(PeakHoursHelper.localScheduleString) Mon–Fri")
+                Text(isWeekend
+                    ? "peak.footer.no_peak_today".localized
+                    : "peak.footer.schedule".localized(with: PeakHoursHelper.localScheduleString))
                     .font(.system(size: 9))
                     .foregroundColor(.secondary)
                 Spacer()
@@ -1557,19 +1562,15 @@ struct PeakHoursBanner: View {
     }
 
     private var peakText: String {
-        let base = "Peak Hours — ends in \(PeakHoursHelper.formatCountdown(timeRemaining))"
-        if !localTime.isEmpty {
-            return "\(base) (\(localTime))"
-        }
-        return base
+        let countdown = PeakHoursHelper.formatCountdown(timeRemaining)
+        let time = localTime.isEmpty ? "" : localTime
+        return "peak.banner.ends_in".localized(with: countdown, time)
     }
 
     private var offPeakText: String {
-        let base = "Peak Hours in \(PeakHoursHelper.formatCountdown(timeRemaining))"
-        if !localTime.isEmpty {
-            return "\(base) (\(localTime))"
-        }
-        return base
+        let countdown = PeakHoursHelper.formatCountdown(timeRemaining)
+        let time = localTime.isEmpty ? "" : localTime
+        return "peak.banner.starts_in".localized(with: countdown, time)
     }
 
     private func update() {

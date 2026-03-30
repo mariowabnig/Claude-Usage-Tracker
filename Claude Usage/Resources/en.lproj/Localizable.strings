@@ -957,3 +957,20 @@
 "notifications.sound.default" = "Default";
 "notifications.sound.none" = "None";
 "notifications.sound.preview" = "Preview sound";
+
+// MARK: - Peak Hours
+"peak.banner.ends_in" = "Peak Hours — ends in %@ (%@)";
+"peak.banner.starts_in" = "Peak Hours in %@ (%@)";
+"peak.footer.schedule" = "Peak: %@ Mon–Fri";
+"peak.footer.no_peak_today" = "No peak hours today";
+"peak.notification.title" = "Peak Hours Starting Soon";
+"peak.notification.body" = "Peak hours begin at %@ — usage will cost more. Heavy work now will be cheaper.";
+"peak.pace.much_faster" = "▸ You can go much faster";
+"peak.pace.faster" = "▸ You can go %.1fx faster";
+"peak.pace.perfect" = "▸ Perfect pace for 100%%";
+"peak.pace.slow_down" = "▸ Slow down to %d%% of current pace";
+"peak.trend.same" = "≈ same as last week";
+"peak.trend.more" = "↑ %d%% more than last week";
+"peak.trend.less" = "↓ %d%% less than last week";
+"peak.tooltip.peak_active" = "Peak Hours active — ends %@";
+"peak.tooltip.usage" = "%@: %d%% used";

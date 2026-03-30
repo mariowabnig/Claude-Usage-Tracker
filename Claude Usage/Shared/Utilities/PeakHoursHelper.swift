@@ -89,6 +89,18 @@ enum PeakHoursHelper {
         return "\(fmt.string(from: start))–\(fmt.string(from: end))"
     }
 
+    // MARK: - Tooltip
+
+    /// Builds a tooltip string for a menu bar icon showing usage + peak status.
+    static func tooltip(metricName: String, percentage: Int) -> String {
+        var parts: [String] = []
+        parts.append(String(format: NSLocalizedString("peak.tooltip.usage", comment: ""), metricName, percentage))
+        if isPeakHours, let time = localTargetTime() {
+            parts.append(String(format: NSLocalizedString("peak.tooltip.peak_active", comment: ""), time))
+        }
+        return parts.joined(separator: "\n")
+    }
+
     // MARK: - Peak Hours Notification
 
     private static let peakNotificationSentKey = "peakHoursNotificationSentDate"
@@ -110,8 +122,8 @@ enum PeakHoursHelper {
 
         let localTime = localTargetTime() ?? ""
         let content = UNMutableNotificationContent()
-        content.title = "Peak Hours Starting Soon"
-        content.body = "Peak hours begin at \(localTime) — usage will cost more. Heavy work now will be cheaper."
+        content.title = NSLocalizedString("peak.notification.title", comment: "")
+        content.body = String(format: NSLocalizedString("peak.notification.body", comment: ""), localTime)
         content.sound = .default
         content.categoryIdentifier = "PEAK_HOURS_ALERT"
 

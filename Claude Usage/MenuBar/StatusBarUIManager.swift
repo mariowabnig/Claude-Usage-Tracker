@@ -459,6 +459,16 @@ final class StatusBarUIManager {
 
             image.isTemplate = config.colorMode == .monochrome && !config.showPaceMarker
             button.image = image
+
+            // Tooltip with usage + peak hours info
+            let metricName = metricConfig.metricType == .session ? "Session" : (metricConfig.metricType == .week ? "Week" : "API")
+            let pct: Int
+            switch metricConfig.metricType {
+            case .session: pct = Int(usage.effectiveSessionPercentage)
+            case .week: pct = Int(usage.weeklyPercentage)
+            case .api: pct = Int(apiUsage?.usagePercentage ?? 0)
+            }
+            button.toolTip = PeakHoursHelper.tooltip(metricName: metricName, percentage: pct)
         }
     }
 
@@ -498,6 +508,15 @@ final class StatusBarUIManager {
 
         image.isTemplate = config.colorMode == .monochrome && !config.showPaceMarker
         button.image = image
+
+        let metricName = metricType == .session ? "Session" : (metricType == .week ? "Week" : "API")
+        let pct: Int
+        switch metricType {
+        case .session: pct = Int(usage.effectiveSessionPercentage)
+        case .week: pct = Int(usage.weeklyPercentage)
+        case .api: pct = Int(apiUsage?.usagePercentage ?? 0)
+        }
+        button.toolTip = PeakHoursHelper.tooltip(metricName: metricName, percentage: pct)
     }
 
     /// Get button for a specific metric (used for popover positioning)

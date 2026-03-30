@@ -945,3 +945,20 @@
 "notifications.sound.default" = "Standard";
 "notifications.sound.none" = "Keiner";
 "notifications.sound.preview" = "Ton-Vorschau";
+
+// MARK: - Peak Hours
+"peak.banner.ends_in" = "Stoßzeiten — endet in %@ (%@)";
+"peak.banner.starts_in" = "Stoßzeiten in %@ (%@)";
+"peak.footer.schedule" = "Stoßzeiten: %@ Mo–Fr";
+"peak.footer.no_peak_today" = "Heute keine Stoßzeiten";
+"peak.notification.title" = "Stoßzeiten beginnen bald";
+"peak.notification.body" = "Stoßzeiten beginnen um %@ — Nutzung kostet mehr. Intensive Arbeit jetzt ist günstiger.";
+"peak.pace.much_faster" = "▸ Du kannst viel schneller arbeiten";
+"peak.pace.faster" = "▸ Du kannst %.1fx schneller arbeiten";
+"peak.pace.perfect" = "▸ Perfektes Tempo für 100%%";
+"peak.pace.slow_down" = "▸ Drossle auf %d%% des aktuellen Tempos";
+"peak.trend.same" = "≈ wie letzte Woche";
+"peak.trend.more" = "↑ %d%% mehr als letzte Woche";
+"peak.trend.less" = "↓ %d%% weniger als letzte Woche";
+"peak.tooltip.peak_active" = "Stoßzeiten aktiv — endet %@";
+"peak.tooltip.usage" = "%@: %d%% genutzt";
