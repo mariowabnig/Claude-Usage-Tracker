@@ -72,6 +72,7 @@
 "menubar.resets_time" = "Réinitialise %@";
 "menubar.resets_in" = "Réinitialisation dans %@";
 "menubar.resets_both" = "Réinitialisation dans %@ (%@)";
+"menubar.elapsed_percentage" = "%d%% écoulé";
 "menubar.click_status" = "Cliquer pour ouvrir status.claude.com";
 
 /* ==================== */

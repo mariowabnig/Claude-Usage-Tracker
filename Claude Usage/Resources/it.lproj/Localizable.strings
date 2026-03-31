@@ -70,6 +70,7 @@
 "menubar.resets_time" = "Si azzera %@";
 "menubar.resets_in" = "Ripristino tra %@";
 "menubar.resets_both" = "Ripristino tra %@ (%@)";
+"menubar.elapsed_percentage" = "%d%% trascorso";
 "menubar.click_status" = "Clicca per aprire status.claude.com";
 
 /* ==================== */

@@ -144,13 +144,47 @@ This file helps track what we've changed so upstream merges stay manageable.
 
 ---
 
+## 11. Elapsed Time Percentage on Usage Rows
+
+**Date:** 2026-03-31
+**Purpose:** Show how much of each time window (5h session, weekly) has elapsed, so you can compare usage % against time % at a glance.
+
+### Changes
+
+**Modified:** `MenuBar/PopoverContentView.swift`
+- `UsageRow`: Added elapsed percentage display ("· X% elapsed") next to the reset time text
+- Only shown when both `resetTime` and `periodDuration` are available (session + weekly all-models rows)
+- Uses existing `rawElapsedFraction` computation
+
+**Modified:** All 9 `Localizable.strings` files
+- Added `menubar.elapsed_percentage` key (e.g. "%d%% elapsed", "%d%% verstrichen", etc.)
+
+---
+
+## 12. Peak Hours Countdown in Footer
+
+**Date:** 2026-03-31
+**Purpose:** Always show how long until peak hours start or end in the bottom footer, not just the schedule.
+
+### Changes
+
+**Modified:** `MenuBar/PopoverContentView.swift`
+- `PopoverInfoFooter`: Added live countdown ("· starts in Xh Ym" / "· ends in Xh Ym") next to the peak schedule line
+- Updates every 30 seconds via Timer
+- Hidden on weekends
+
+**Modified:** `en.lproj/Localizable.strings`, `de.lproj/Localizable.strings`
+- Added `peak.footer.starts_in` and `peak.footer.ends_in` keys
+
+---
+
 ## Files Modified (summary)
 
 | File | Change |
 |------|--------|
 | `Shared/Utilities/PeakHoursHelper.swift` | NEW — peak detection, countdown, notifications, tooltips |
 | `Shared/Extensions/Color+AppColors.swift` | peakAmber, safeDynamic colors |
-| `MenuBar/PopoverContentView.swift` | Banner, stripes, pace, footer (schedule + trend + weekend) |
+| `MenuBar/PopoverContentView.swift` | Banner, stripes, pace, footer (schedule + trend + weekend), elapsed %, peak countdown |
 | `MenuBar/MenuBarIconRenderer.swift` | Striped bars during peak (battery + progress bar) |
 | `MenuBar/MenuBarManager.swift` | Peak warning notification hook |
 | `MenuBar/StatusBarUIManager.swift` | Tooltips on menu bar icons |

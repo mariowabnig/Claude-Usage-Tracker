@@ -78,6 +78,7 @@
 "menubar.resets_time" = "Resets %@";
 "menubar.resets_in" = "Resets in %@";
 "menubar.resets_both" = "Resets in %@ (%@)";
+"menubar.elapsed_percentage" = "%d%% elapsed";
 "menubar.click_status" = "Click to open status.claude.com";
 
 /* ==================== */
@@ -963,6 +964,8 @@
 "peak.banner.starts_in" = "Peak Hours in %@ (%@)";
 "peak.footer.schedule" = "Peak: %@ Mon–Fri";
 "peak.footer.no_peak_today" = "No peak hours today";
+"peak.footer.starts_in" = "starts in %@";
+"peak.footer.ends_in" = "ends in %@";
 "peak.notification.title" = "Peak Hours Starting Soon";
 "peak.notification.body" = "Peak hours begin at %@ — usage will cost more. Heavy work now will be cheaper.";
 "peak.pace.much_faster" = "▸ You can go much faster";

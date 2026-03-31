@@ -72,6 +72,7 @@
 "menubar.resets_time" = "重置时间 %@";
 "menubar.resets_in" = "%@后重置";
 "menubar.resets_both" = "%@后重置 (%@)";
+"menubar.elapsed_percentage" = "已过%d%%";
 "menubar.click_status" = "点击打开 status.claude.com";
 
 /* ==================== */

@@ -81,6 +81,7 @@
 "menubar.resets_time" = "%@ 리셋";
 "menubar.resets_in" = "%@ 후 초기화";
 "menubar.resets_both" = "%@ 후 초기화 (%@)";
+"menubar.elapsed_percentage" = "%d%% 경과";
 "menubar.click_status" = "클릭하여 status.claude.com 열기";
 
 /* ==================== */

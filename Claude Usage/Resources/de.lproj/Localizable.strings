@@ -72,6 +72,7 @@
 "menubar.resets_time" = "Zurücksetzen %@";
 "menubar.resets_in" = "Zurücksetzung in %@";
 "menubar.resets_both" = "Zurücksetzung in %@ (%@)";
+"menubar.elapsed_percentage" = "%d%% verstrichen";
 "menubar.click_status" = "Klicken um status.claude.com zu öffnen";
 
 /* ==================== */
@@ -951,6 +952,8 @@
 "peak.banner.starts_in" = "Stoßzeiten in %@ (%@)";
 "peak.footer.schedule" = "Stoßzeiten: %@ Mo–Fr";
 "peak.footer.no_peak_today" = "Heute keine Stoßzeiten";
+"peak.footer.starts_in" = "beginnt in %@";
+"peak.footer.ends_in" = "endet in %@";
 "peak.notification.title" = "Stoßzeiten beginnen bald";
 "peak.notification.body" = "Stoßzeiten beginnen um %@ — Nutzung kostet mehr. Intensive Arbeit jetzt ist günstiger.";
 "peak.pace.much_faster" = "▸ Du kannst viel schneller arbeiten";

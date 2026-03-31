@@ -851,11 +851,22 @@ struct UsageRow: View {
             }
             .frame(height: 4)
 
-            // Reset time
+            // Reset time + elapsed percentage
             if let reset = resetTime {
-                Text(resetTimeText(for: reset))
-                    .font(.system(size: 9))
-                    .foregroundColor(.secondary)
+                HStack(spacing: 4) {
+                    Text(resetTimeText(for: reset))
+                        .font(.system(size: 9))
+                        .foregroundColor(.secondary)
+
+                    if let elapsed = rawElapsedFraction {
+                        Text("·")
+                            .font(.system(size: 9))
+                            .foregroundColor(.secondary.opacity(0.5))
+                        Text(String(format: "menubar.elapsed_percentage".localized, Int(elapsed * 100)))
+                            .font(.system(size: 9, weight: .medium))
+                            .foregroundColor(.secondary)
+                    }
+                }
             }
 
             // Pace guidance
@@ -963,6 +974,8 @@ struct Insight {
 
 struct PopoverInfoFooter: View {
     @StateObject private var profileManager = ProfileManager.shared
+    @State private var peakCountdown: (isPeak: Bool, timeRemaining: TimeInterval)?
+    private let timer = Timer.publish(every: 30, on: .main, in: .common).autoconnect()
 
     private var isWeekend: Bool {
         let weekday = Calendar.current.component(.weekday, from: Date())
@@ -988,6 +1001,16 @@ struct PopoverInfoFooter: View {
         }
     }
 
+    private var peakCountdownText: String? {
+        guard let cd = peakCountdown, cd.timeRemaining > 0 else { return nil }
+        let countdown = PeakHoursHelper.formatCountdown(cd.timeRemaining)
+        if cd.isPeak {
+            return String(format: "peak.footer.ends_in".localized, countdown)
+        } else {
+            return String(format: "peak.footer.starts_in".localized, countdown)
+        }
+    }
+
     var body: some View {
         VStack(spacing: 3) {
             PopoverDivider()
@@ -1001,6 +1024,16 @@ struct PopoverInfoFooter: View {
                     : "peak.footer.schedule".localized(with: PeakHoursHelper.localScheduleString))
                     .font(.system(size: 9))
                     .foregroundColor(.secondary)
+
+                if !isWeekend, let countdownText = peakCountdownText {
+                    Text("·")
+                        .font(.system(size: 9))
+                        .foregroundColor(.secondary.opacity(0.5))
+                    Text(countdownText)
+                        .font(.system(size: 9, weight: .medium))
+                        .foregroundColor(.secondary)
+                }
+
                 Spacer()
             }
             .padding(.horizontal, 14)
@@ -1019,6 +1052,8 @@ struct PopoverInfoFooter: View {
                 .padding(.horizontal, 14)
             }
         }
+        .onAppear { peakCountdown = PeakHoursHelper.countdown() }
+        .onReceive(timer) { _ in peakCountdown = PeakHoursHelper.countdown() }
     }
 }
 

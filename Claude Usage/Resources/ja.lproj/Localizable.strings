@@ -72,6 +72,7 @@
 "menubar.resets_time" = "%@にリセット";
 "menubar.resets_in" = "%@後にリセット";
 "menubar.resets_both" = "%@でリセット (%@)";
+"menubar.elapsed_percentage" = "%d%%経過";
 "menubar.click_status" = "クリックしてstatus.claude.comを開く";
 
 /* ==================== */
