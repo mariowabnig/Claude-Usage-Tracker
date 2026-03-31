@@ -851,22 +851,18 @@ struct UsageRow: View {
             }
             .frame(height: 4)
 
-            // Reset time + elapsed percentage
+            // Reset time
             if let reset = resetTime {
-                HStack(spacing: 4) {
-                    Text(resetTimeText(for: reset))
-                        .font(.system(size: 9))
-                        .foregroundColor(.secondary)
+                Text(resetTimeText(for: reset))
+                    .font(.system(size: 9))
+                    .foregroundColor(.secondary)
+            }
 
-                    if let elapsed = rawElapsedFraction {
-                        Text("·")
-                            .font(.system(size: 9))
-                            .foregroundColor(.secondary.opacity(0.5))
-                        Text(String(format: "menubar.elapsed_percentage".localized, Int(elapsed * 100)))
-                            .font(.system(size: 9, weight: .medium))
-                            .foregroundColor(.secondary)
-                    }
-                }
+            // Elapsed percentage
+            if let elapsed = rawElapsedFraction {
+                Text(String(format: "menubar.elapsed_percentage".localized, Int(elapsed * 100)))
+                    .font(.system(size: 9, weight: .medium))
+                    .foregroundColor(.secondary)
             }
 
             // Pace guidance
