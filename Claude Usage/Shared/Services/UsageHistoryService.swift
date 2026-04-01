@@ -330,6 +330,100 @@ class UsageHistoryService {
         case csv
     }
 
+    // MARK: - Provider-Neutral Recording
+
+    /// Records a provider-neutral usage snapshot for any provider type.
+    /// Converts ProviderUsageSnapshot metrics into UsageSnapshot format for unified storage.
+    func recordProviderSnapshot(for profileId: UUID, provider: UsageProviderKind, snapshot: ProviderUsageSnapshot) {
+        let now = Date()
+
+        // Use session recording interval for throttling
+        let throttleKey = "lastProviderRecordTime_\(provider.rawValue)_\(profileId.uuidString)"
+        if let lastRecord = defaults.object(forKey: throttleKey) as? Date {
+            let elapsed = now.timeIntervalSince(lastRecord)
+            if elapsed < sessionRecordingInterval {
+                return
+            }
+        }
+
+        // Create a generic usage snapshot from the provider's primary metric
+        guard let primaryRow = snapshot.primaryRows.first else { return }
+
+        let usageSnapshot = UsageSnapshot(
+            resetType: .sessionReset,
+            sessionTokensUsed: 0,
+            sessionPercentage: primaryRow.usedPercentage ?? 0,
+            triggeringResetTime: now
+        )
+
+        var history = loadHistory(for: profileId)
+        history.addSnapshot(usageSnapshot)
+
+        // Prune if needed
+        let sessionCount = history.sessionSnapshots.count
+        if sessionCount > maxSessionSnapshots {
+            let toRemove = sessionCount - maxSessionSnapshots
+            let oldestSessions = history.sessionSnapshots.suffix(toRemove)
+            let idsToRemove = Set(oldestSessions.map { $0.id })
+            history.snapshots.removeAll { idsToRemove.contains($0.id) }
+        }
+
+        saveHistory(history, for: profileId)
+        defaults.set(now, forKey: throttleKey)
+        LoggingService.shared.logInfo("Recorded \(provider.displayName) snapshot for profile \(profileId.uuidString.prefix(8))")
+    }
+
+    /// Records provider-neutral history points directly into the provider history store.
+    /// This is the preferred method for non-Claude providers.
+    func recordProviderHistoryPoints(for profileId: UUID, points: [ProviderHistoryPoint]) {
+        guard !points.isEmpty else { return }
+
+        let storageKey = "providerHistory_\(profileId.uuidString)"
+
+        var historyData: ProviderHistoryData
+        if let data = defaults.data(forKey: storageKey),
+           let existing = try? decoder.decode(ProviderHistoryData.self, from: data) {
+            historyData = existing
+        } else {
+            historyData = ProviderHistoryData(points: [])
+        }
+
+        historyData.points.append(contentsOf: points)
+
+        // Prune to keep max 2000 points per profile
+        if historyData.points.count > 2000 {
+            historyData.points = Array(historyData.points.suffix(2000))
+        }
+
+        if let encoded = try? encoder.encode(historyData) {
+            defaults.set(encoded, forKey: storageKey)
+        }
+
+        LoggingService.shared.logInfo("Recorded \(points.count) provider history points for profile \(profileId.uuidString.prefix(8))")
+    }
+
+    /// Loads provider-neutral history data for a profile
+    func loadProviderHistory(for profileId: UUID) -> ProviderHistoryData {
+        let storageKey = "providerHistory_\(profileId.uuidString)"
+        guard let data = defaults.data(forKey: storageKey) else {
+            return ProviderHistoryData(points: [])
+        }
+
+        do {
+            return try decoder.decode(ProviderHistoryData.self, from: data)
+        } catch {
+            LoggingService.shared.logStorageError("loadProviderHistory", error: error)
+            return ProviderHistoryData(points: [])
+        }
+    }
+
+    /// Clears provider-neutral history for a profile
+    func clearProviderHistory(for profileId: UUID) {
+        let storageKey = "providerHistory_\(profileId.uuidString)"
+        defaults.removeObject(forKey: storageKey)
+        LoggingService.shared.logInfo("Cleared provider history for profile \(profileId.uuidString.prefix(8))")
+    }
+
     // MARK: - Cleanup
 
     /// Deletes all history for a profile
@@ -338,6 +432,8 @@ class UsageHistoryService {
         // Also delete persisted timestamps
         defaults.removeObject(forKey: "\(lastSessionRecordTimePrefix)\(profileId.uuidString)")
         defaults.removeObject(forKey: "\(lastWeeklyRecordTimePrefix)\(profileId.uuidString)")
+        // Also delete provider-neutral history
+        defaults.removeObject(forKey: "providerHistory_\(profileId.uuidString)")
         LoggingService.shared.logInfo("Deleted usage history for profile \(profileId.uuidString.prefix(8))")
     }
 

@@ -11,6 +11,7 @@ struct ManageProfilesView: View {
     @StateObject private var profileManager = ProfileManager.shared
     @State private var showingCreateProfile = false
     @State private var newProfileName = ""
+    @State private var selectedProvider: UsageProviderKind = .claude
     @State private var errorMessage: String?
 
     var body: some View {
@@ -296,6 +297,7 @@ struct ManageProfilesView: View {
         .sheet(isPresented: $showingCreateProfile) {
             CreateProfileSheet(
                 profileName: $newProfileName,
+                selectedProvider: $selectedProvider,
                 onSave: {
                     createNewProfile()
                 },
@@ -309,9 +311,10 @@ struct ManageProfilesView: View {
 
     private func createNewProfile() {
         let name = newProfileName.isEmpty ? nil : newProfileName
-        _ = profileManager.createProfile(name: name)
+        _ = profileManager.createProfile(name: name, providerKind: selectedProvider)
         showingCreateProfile = false
         newProfileName = ""
+        selectedProvider = .claude
     }
 }
 
@@ -327,9 +330,11 @@ struct ProfileRow: View {
     var body: some View {
         HStack(spacing: 12) {
             // Profile Icon
-            Image(systemName: profile.hasCliAccount ? "person.crop.circle.fill.badge.checkmark" : "person.crop.circle.fill")
+            Image(systemName: profile.providerKind == .claude
+                ? (profile.hasCliAccount ? "person.crop.circle.fill.badge.checkmark" : "person.crop.circle.fill")
+                : profile.providerKind.iconName)
                 .font(.system(size: 24))
-                .foregroundColor(profileManager.activeProfile?.id == profile.id ? .accentColor : .secondary)
+                .foregroundColor(profileManager.activeProfile?.id == profile.id ? profile.providerKind.accentColor : .secondary)
 
             VStack(alignment: .leading, spacing: 4) {
                 if isEditing {
@@ -468,6 +473,7 @@ struct ProfileRow: View {
 
 struct CreateProfileSheet: View {
     @Binding var profileName: String
+    @Binding var selectedProvider: UsageProviderKind
     let onSave: () -> Void
     let onCancel: () -> Void
 
@@ -485,6 +491,42 @@ struct CreateProfileSheet: View {
                     .textFieldStyle(.roundedBorder)
 
                 Text("profiles.name_hint".localized)
+                    .font(.system(size: 10))
+                    .foregroundColor(.secondary)
+            }
+
+            // Provider type selection
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Provider")
+                    .font(.system(size: 12))
+                    .foregroundColor(.secondary)
+
+                HStack(spacing: 8) {
+                    ForEach(UsageProviderKind.allCases) { provider in
+                        Button(action: { selectedProvider = provider }) {
+                            HStack(spacing: 6) {
+                                Image(systemName: provider.iconName)
+                                    .font(.system(size: 12))
+                                Text(provider.displayName)
+                                    .font(.system(size: 12, weight: .medium))
+                            }
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 6)
+                            .background(
+                                RoundedRectangle(cornerRadius: 6)
+                                    .fill(selectedProvider == provider ? provider.accentColor.opacity(0.15) : Color.clear)
+                            )
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 6)
+                                    .stroke(selectedProvider == provider ? provider.accentColor : Color.secondary.opacity(0.3), lineWidth: 1)
+                            )
+                            .foregroundColor(selectedProvider == provider ? provider.accentColor : .secondary)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+
+                Text("Select which AI provider this profile tracks")
                     .font(.system(size: 10))
                     .foregroundColor(.secondary)
             }

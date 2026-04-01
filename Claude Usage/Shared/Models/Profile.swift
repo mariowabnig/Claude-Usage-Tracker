@@ -13,7 +13,13 @@ struct Profile: Codable, Identifiable, Equatable {
     let id: UUID
     var name: String
 
-    // MARK: - Credentials (stored directly in profile)
+    // MARK: - Provider
+    var providerKind: UsageProviderKind
+
+    // MARK: - Provider-Scoped Credentials
+    var providerCredentials: ProviderCredentials?
+
+    // MARK: - Legacy Credentials (kept for migration, mapped to providerCredentials)
     var claudeSessionKey: String?
     var organizationId: String?
     var apiSessionKey: String?
@@ -50,6 +56,8 @@ struct Profile: Codable, Identifiable, Equatable {
     init(
         id: UUID = UUID(),
         name: String,
+        providerKind: UsageProviderKind = .claude,
+        providerCredentials: ProviderCredentials? = nil,
         claudeSessionKey: String? = nil,
         organizationId: String? = nil,
         apiSessionKey: String? = nil,
@@ -71,6 +79,8 @@ struct Profile: Codable, Identifiable, Equatable {
     ) {
         self.id = id
         self.name = name
+        self.providerKind = providerKind
+        self.providerCredentials = providerCredentials
         self.claudeSessionKey = claudeSessionKey
         self.organizationId = organizationId
         self.apiSessionKey = apiSessionKey
@@ -92,6 +102,38 @@ struct Profile: Codable, Identifiable, Equatable {
     }
 
     // MARK: - Computed Properties
+
+    /// Claude credentials from either legacy fields or provider credentials
+    var claudeCredentials: ClaudeProviderCredentials? {
+        if let creds = providerCredentials?.claude {
+            return creds
+        }
+        // Fallback to legacy fields for un-migrated profiles
+        if claudeSessionKey != nil || organizationId != nil || apiSessionKey != nil || cliCredentialsJSON != nil {
+            return ClaudeProviderCredentials(
+                sessionKey: claudeSessionKey,
+                organizationId: organizationId,
+                apiSessionKey: apiSessionKey,
+                apiOrganizationId: apiOrganizationId,
+                apiSessionKeyExpiry: apiSessionKeyExpiry,
+                cliCredentialsJSON: cliCredentialsJSON,
+                hasCliAccount: hasCliAccount,
+                cliAccountSyncedAt: cliAccountSyncedAt
+            )
+        }
+        return nil
+    }
+
+    /// Codex credentials from provider credentials
+    var codexCredentials: CodexProviderCredentials? {
+        providerCredentials?.codex
+    }
+
+    /// Copilot credentials from provider credentials
+    var copilotCredentials: CopilotProviderCredentials? {
+        providerCredentials?.copilot
+    }
+
     var hasClaudeAI: Bool {
         claudeSessionKey != nil && organizationId != nil
     }
@@ -100,10 +142,16 @@ struct Profile: Codable, Identifiable, Equatable {
         apiSessionKey != nil && apiOrganizationId != nil
     }
 
-    /// True if profile has credentials that can fetch usage data (Claude.ai, CLI OAuth, or API Console)
-    /// Note: System keychain fallback is handled in ClaudeAPIService.getAuthentication() during actual API calls
+    /// True if profile has credentials that can fetch usage data
     var hasUsageCredentials: Bool {
-        hasClaudeAI || hasAPIConsole || hasValidCLIOAuth
+        switch providerKind {
+        case .claude:
+            return hasClaudeAI || hasAPIConsole || hasValidCLIOAuth
+        case .codex:
+            return codexCredentials != nil || CodexAuthService.shared.hasLocalAuth
+        case .copilot:
+            return copilotCredentials?.githubToken != nil
+        }
     }
 
     /// True if profile has CLI OAuth credentials that are not expired
@@ -113,7 +161,14 @@ struct Profile: Codable, Identifiable, Equatable {
     }
 
     var hasAnyCredentials: Bool {
-        hasClaudeAI || hasAPIConsole || cliCredentialsJSON != nil
+        switch providerKind {
+        case .claude:
+            return hasClaudeAI || hasAPIConsole || cliCredentialsJSON != nil
+        case .codex:
+            return codexCredentials != nil || CodexAuthService.shared.hasLocalAuth
+        case .copilot:
+            return copilotCredentials?.githubToken != nil
+        }
     }
 }
 

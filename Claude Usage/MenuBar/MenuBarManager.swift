@@ -61,6 +61,11 @@ class MenuBarManager: NSObject, ObservableObject {
     private let profileManager = ProfileManager.shared
     private let autoStartService = AutoStartSessionService.shared
 
+    // Provider fetchers
+    private lazy var claudeFetcher = ClaudeUsageProviderFetcher(apiService: apiService)
+    private lazy var codexFetcher = CodexUsageProviderFetcher()
+    private lazy var copilotFetcher = CopilotUsageProviderFetcher()
+
     // Combine cancellables for profile observation
     private var cancellables = Set<AnyCancellable>()
 
@@ -973,6 +978,21 @@ class MenuBarManager: NSObject, ObservableObject {
             message: "Missing credentials for profile '\(profile.name)'",
             isRecoverable: false
         )
+    }
+
+    /// Returns the appropriate fetcher for a given provider kind
+    func providerFetcher(for kind: UsageProviderKind) -> UsageProviderFetcher {
+        switch kind {
+        case .claude:  return claudeFetcher
+        case .codex:   return codexFetcher
+        case .copilot: return copilotFetcher
+        }
+    }
+
+    /// Fetches a provider-neutral usage snapshot for any profile
+    func fetchProviderSnapshot(for profile: Profile) async throws -> ProviderUsageSnapshot {
+        let fetcher = providerFetcher(for: profile.providerKind)
+        return try await fetcher.fetchUsage(for: profile)
     }
 
     private func setupSingleProfileMode() {

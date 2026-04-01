@@ -193,6 +193,12 @@ enum ErrorCode: String, CaseIterable {
     case githubServerError = "E6002"
     case githubGenericError = "E6099"
 
+    // MARK: - Provider Errors (7000-7099)
+
+    case configurationError = "E7000"
+    case providerNotConfigured = "E7001"
+    case providerAuthExpired = "E7002"
+
     // MARK: - Unknown Errors (9000-9999)
 
     case unknown = "E9999"

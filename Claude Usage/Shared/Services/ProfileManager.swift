@@ -59,13 +59,14 @@ class ProfileManager: ObservableObject {
 
     // MARK: - Profile Operations
 
-    func createProfile(name: String? = nil, copySettingsFrom: Profile? = nil) -> Profile {
+    func createProfile(name: String? = nil, providerKind: UsageProviderKind = .claude, copySettingsFrom: Profile? = nil) -> Profile {
         let usedNames = profiles.map { $0.name }
         let profileName = name ?? FunnyNameGenerator.getRandomName(excluding: usedNames)
 
         let newProfile = Profile(
             id: UUID(),
             name: profileName,
+            providerKind: providerKind,
             hasCliAccount: false,
             iconConfig: copySettingsFrom?.iconConfig ?? .default,
             refreshInterval: copySettingsFrom?.refreshInterval ?? 30.0,

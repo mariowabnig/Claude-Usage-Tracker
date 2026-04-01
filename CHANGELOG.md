@@ -5,6 +5,21 @@ All notable changes to Claude Usage Tracker will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.1.0] - 2026-04-01
+
+### Multi-Provider Usage Visuals
+
+- **UsageProviderKind**: New `UsageProviderKind` enum (`claude`, `codex`, `copilot`) added to every profile, enabling provider-aware dispatch throughout the app
+- **Provider-Neutral Models**: New `ProviderUsageSnapshot`, `ProviderMetricRow`, `ProviderCredentials`, and `ProviderHistory` models decouple the UI from Claude-specific data shapes
+- **UsageProviderFetcher Protocol**: New protocol with concrete implementations — `ClaudeUsageProviderFetcher`, `CodexUsageProviderFetcher`, `CopilotUsageProviderFetcher` — behind a unified `fetchUsage(for:)` contract
+- **SmartUsageDashboard Refactor**: `PopoverContentView` `SmartUsageDashboard` now renders provider-neutral `ProviderMetricRow` arrays instead of hardcoded Claude rows; Claude experience is visually unchanged
+- **MenuBarManager Provider Dispatch**: `fetchUsageForProfile(_:)` switches on `providerKind` to route to the correct provider fetcher
+- **UsageHistoryService Provider-Neutral Recording**: History snapshots now carry `UsageProviderKind`; recording logic is provider-aware
+- **Profile Provider Picker**: `CreateProfileSheet` gains a provider picker UI (Claude / Codex / Copilot); `ProfileManager.createProfile` accepts `providerKind`
+- **CodexAuthService + CopilotAuthService**: New auth services for Codex (`~/.codex/auth.json`) and Copilot (GitHub OAuth token)
+- **AppError Provider Codes**: `AppError` extended with provider-specific error cases for Codex and Copilot auth/fetch failures
+- **ProviderModelsTests**: 58 new unit tests covering provider model encoding, snapshot construction, and credentials; total suite now 154 passing
+
 ## [3.0.3] - 2026-03-10
 
 ### 6-Tier Pace System

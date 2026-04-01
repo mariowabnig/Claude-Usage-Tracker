@@ -546,9 +546,19 @@ struct HeaderIconButton: View {
 
 // MARK: - Smart Usage Dashboard
 struct SmartUsageDashboard: View {
-    let usage: ClaudeUsage
-    let apiUsage: APIUsage?
+    let snapshot: ProviderUsageSnapshot
     @StateObject private var profileManager = ProfileManager.shared
+
+    /// Legacy convenience initializer for backward compatibility.
+    /// Converts ClaudeUsage + APIUsage into ProviderUsageSnapshot.
+    init(usage: ClaudeUsage, apiUsage: APIUsage?) {
+        self.snapshot = ClaudeUsageSnapshotAdapter.snapshot(from: usage, apiUsage: apiUsage)
+    }
+
+    /// Provider-neutral initializer
+    init(snapshot: ProviderUsageSnapshot) {
+        self.snapshot = snapshot
+    }
 
     private var showRemainingPercentage: Bool {
         profileManager.activeProfile?.iconConfig.showRemainingPercentage ?? false
@@ -581,100 +591,87 @@ struct SmartUsageDashboard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            // Peak hours banner with countdown
-            PeakHoursBanner()
-
-            // Primary: Session Usage
-            UsageRow(
-                title: "menubar.session_usage".localized,
-                subtitle: "menubar.5_hour_window".localized,
-                usedPercentage: usage.effectiveSessionPercentage,
-                showRemaining: showRemainingPercentage,
-                resetTime: usage.sessionResetTime,
-                periodDuration: Constants.sessionWindow,
-                showTimeMarker: showTimeMarker,
-                showPaceMarker: showPaceMarker,
-                usePaceColoring: usePaceColoring,
-                timeDisplay: timeDisplay
-            )
-
-            // All Models (Weekly)
-            UsageRow(
-                title: "menubar.all_models".localized,
-                tag: "menubar.weekly".localized,
-                subtitle: nil,
-                usedPercentage: usage.weeklyPercentage,
-                showRemaining: showRemainingPercentage,
-                resetTime: usage.weeklyResetTime,
-                periodDuration: Constants.weeklyWindow,
-                showTimeMarker: showTimeMarker,
-                showPaceMarker: showPaceMarker,
-                usePaceColoring: usePaceColoring,
-                timeDisplay: timeDisplay
-            )
-
-            if usage.opusWeeklyTokensUsed > 0 {
-                UsageRow(
-                    title: "menubar.opus_usage".localized,
-                    tag: "menubar.weekly".localized,
-                    subtitle: nil,
-                    usedPercentage: usage.opusWeeklyPercentage,
-                    showRemaining: showRemainingPercentage,
-                    resetTime: nil,
-                    periodDuration: nil
-                )
+            // Peak hours banner (Claude-specific, shown for Claude provider)
+            if snapshot.provider == .claude {
+                PeakHoursBanner()
             }
 
-            if usage.sonnetWeeklyTokensUsed > 0 {
+            // Render provider-neutral metric rows
+            ForEach(snapshot.primaryRows) { row in
                 UsageRow(
-                    title: "menubar.sonnet_usage".localized,
-                    subtitle: nil,
-                    usedPercentage: usage.sonnetWeeklyPercentage,
+                    title: row.title,
+                    tag: row.tag,
+                    subtitle: row.subtitle,
+                    usedPercentage: row.usedPercentage ?? 0,
                     showRemaining: showRemainingPercentage,
-                    resetTime: usage.sonnetWeeklyResetTime,
-                    periodDuration: nil,
+                    resetTime: row.resetTime,
+                    periodDuration: row.periodDuration,
+                    showTimeMarker: row.supportsPaceMarkers ? showTimeMarker : false,
+                    showPaceMarker: row.supportsPaceMarkers ? showPaceMarker : false,
+                    usePaceColoring: row.supportsPaceMarkers ? usePaceColoring : false,
                     timeDisplay: timeDisplay
                 )
             }
 
-            // Extra usage (cost-based)
-            if let used = usage.costUsed, let limit = usage.costLimit, let currency = usage.costCurrency, limit > 0 {
-                let usedPercentage = (used / limit) * 100.0
-                UsageRow(
-                    title: "menubar.extra_usage".localized,
-                    subtitle: String(format: "%.2f / %.2f %@", used / 100.0, limit / 100.0, currency),
-                    usedPercentage: usedPercentage,
-                    showRemaining: showRemainingPercentage,
-                    resetTime: nil,
-                    periodDuration: nil
-                )
+            // Render supplementary cards
+            ForEach(snapshot.secondaryCards) { card in
+                switch card.kind {
+                case .apiUsage(let apiUsage):
+                    APIUsageCard(apiUsage: apiUsage, showRemaining: showRemainingPercentage, timeDisplay: timeDisplay)
 
-                // Overage credit grant balance
-                if let balance = usage.overageBalance, let balanceCurrency = usage.overageBalanceCurrency {
+                case .apiCost(let apiUsage):
+                    APICostCard(apiUsage: apiUsage)
+
+                case .keyValue(let label, let value, let valueColor):
                     HStack {
-                        Text("popover.overage_balance".localized)
+                        Text(label)
                             .font(.system(size: 11, weight: .medium))
                             .foregroundColor(.secondary)
                         Spacer()
-                        Text(String(format: "%.2f %@", balance / 100.0, balanceCurrency.uppercased()))
+                        Text(value)
                             .font(.system(size: 11, weight: .semibold, design: .rounded))
-                            .foregroundColor(.adaptiveGreen)
+                            .foregroundColor(valueColor ?? .primary)
                     }
-                }
-            }
 
-            // API Usage
-            if let apiUsage = apiUsage {
-                APIUsageCard(apiUsage: apiUsage, showRemaining: showRemainingPercentage, timeDisplay: timeDisplay)
-
-                // API Cost Card (only if cost data is available)
-                if let costCents = apiUsage.apiTokenCostCents, costCents > 0 {
-                    APICostCard(apiUsage: apiUsage)
+                case .providerStatus(let connected, let statusText):
+                    ProviderStatusCard(connected: connected, statusText: statusText, provider: snapshot.provider)
                 }
             }
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 8)
+    }
+}
+
+// MARK: - Provider Status Card
+struct ProviderStatusCard: View {
+    let connected: Bool
+    let statusText: String
+    let provider: UsageProviderKind
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Circle()
+                .fill(connected ? Color.adaptiveGreen : Color.orange)
+                .frame(width: 8, height: 8)
+
+            VStack(alignment: .leading, spacing: 1) {
+                Text(provider.displayName)
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundColor(.primary)
+                Text(statusText)
+                    .font(.system(size: 10))
+                    .foregroundColor(.secondary)
+            }
+
+            Spacer()
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
+        .background(
+            RoundedRectangle(cornerRadius: 8)
+                .strokeBorder(Color.primary.opacity(0.1), lineWidth: 0.5)
+        )
     }
 }
 

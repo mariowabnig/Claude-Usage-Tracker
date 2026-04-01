@@ -405,11 +405,26 @@ struct ChartDataPoint: Identifiable {
     let series: UsageSeries
 }
 
-/// Combined chart overlaying session and weekly usage on one shared axis
+/// Provider-neutral chart data point for multi-provider charting
+struct ProviderChartDataPoint: Identifiable {
+    let id = UUID()
+    let timestamp: Date
+    let value: Double
+    let seriesId: String
+    let seriesName: String
+    let seriesColor: Color
+    let lineStyle: StrokeStyle
+}
+
+/// Combined chart overlaying session and weekly usage on one shared axis.
+/// Supports both legacy Claude snapshots and provider-neutral series.
 struct CombinedUsageChart: View {
     let sessionSnapshots: [UsageSnapshot]
     let weeklySnapshots: [UsageSnapshot]
     @Binding var timeScale: ChartTimeScale
+
+    /// Optional provider-neutral series (used when non-Claude providers have history)
+    var providerSeries: [ProviderHistorySeries]?
 
     @State private var timeOffset: Double = 0
 
