@@ -523,6 +523,10 @@
 "multiprofile.subtitle" = "Mehrere Profile in der Menüleiste anzeigen";
 "multiprofile.enable_title" = "Mehrere Profile anzeigen";
 "multiprofile.enable_description" = "Ausgewählte Profile als kompakte Symbole nebeneinander anzeigen";
+"multiprofile.style_circles" = "Kreise";
+"multiprofile.style_bars" = "Balken";
+"multiprofile.style_dots" = "Punkte";
+"multiprofile.style_percent" = "Prozent";
 "multiprofile.select_profiles" = "Profile zur Anzeige auswählen:";
 "multiprofile.info" = "Jedes Profil zeigt Sitzung (innerer Ring) und Woche (äußerer Ring) mit Profilname";
 "multiprofile.active_badge" = "Aktiv";
@@ -567,6 +571,8 @@
 /* ==================== */
 "appearance.global_subtitle" = "Menüleisten-Symbol-Verhalten anpassen";
 "appearance.metrics_subtitle" = "Metriken auswählen, die in der Menüleiste angezeigt werden";
+"appearance.all_metrics_off_title" = "App-Logo-Modus";
+"appearance.all_metrics_off_description" = "Alle Metriken sind ausgeschaltet. Stattdessen wird das App-Logo in der Menüleiste angezeigt. Klicken Sie darauf, um Profile und Einstellungen zu öffnen.";
 
 /* ==================== */
 /* MARK: - Metric Card */

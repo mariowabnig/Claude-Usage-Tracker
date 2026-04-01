@@ -62,6 +62,7 @@ class SharedDataStore {
 
         // Auto-Switch Profile
         static let autoSwitchProfileEnabled = "autoSwitchProfileEnabled"
+        static let autoApplyCLICredentialsOnProfileSwitch = "autoApplyCLICredentialsOnProfileSwitch"
 
         // Popover Settings
         static let popoverShowRemainingTime = "popoverShowRemainingTime" // legacy bool key
@@ -270,6 +271,20 @@ class SharedDataStore {
     }
 
     // MARK: - Setup State
+
+    /// Controls whether switching profiles is allowed to overwrite the user's
+    /// active Claude Code CLI login in the system keychain.
+    /// Default is false for safety.
+    func saveAutoApplyCLICredentialsOnProfileSwitch(_ enabled: Bool) {
+        defaults.set(enabled, forKey: Keys.autoApplyCLICredentialsOnProfileSwitch)
+    }
+
+    func loadAutoApplyCLICredentialsOnProfileSwitch() -> Bool {
+        if defaults.object(forKey: Keys.autoApplyCLICredentialsOnProfileSwitch) == nil {
+            return false
+        }
+        return defaults.bool(forKey: Keys.autoApplyCLICredentialsOnProfileSwitch)
+    }
 
     func saveHasCompletedSetup(_ completed: Bool) {
         defaults.set(completed, forKey: Keys.hasCompletedSetup)

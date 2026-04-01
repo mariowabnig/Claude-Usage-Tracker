@@ -501,6 +501,10 @@
 "multiprofile.subtitle" = "Afficher plusieurs profils dans la barre de menu";
 "multiprofile.enable_title" = "Afficher Plusieurs Profils";
 "multiprofile.enable_description" = "Afficher les profils sélectionnés comme icônes compactes côte à côte";
+"multiprofile.style_circles" = "Cercles";
+"multiprofile.style_bars" = "Barres";
+"multiprofile.style_dots" = "Points";
+"multiprofile.style_percent" = "Pourcentage";
 "multiprofile.select_profiles" = "Sélectionner les profils à afficher :";
 "multiprofile.info" = "Chaque profil affiche session (anneau intérieur) et semaine (anneau extérieur) avec le nom du profil";
 "multiprofile.active_badge" = "Actif";
@@ -545,6 +549,8 @@
 /* ==================== */
 "appearance.global_subtitle" = "Personnaliser le comportement de l'icône de la barre de menu";
 "appearance.metrics_subtitle" = "Sélectionner les métriques à afficher dans la barre de menu";
+"appearance.all_metrics_off_title" = "Mode icône de l’app";
+"appearance.all_metrics_off_description" = "Toutes les métriques sont désactivées. L’icône de l’app sera affichée dans la barre des menus à la place. Cliquez dessus pour accéder aux profils et aux réglages.";
 
 /* ==================== */
 /* MARK: - Metric Card */

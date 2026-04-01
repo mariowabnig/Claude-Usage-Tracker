@@ -128,6 +128,10 @@
 "multiprofile.subtitle" = "메뉴 바에 여러 프로필 표시";
 "multiprofile.enable_title" = "여러 프로필 표시";
 "multiprofile.enable_description" = "선택한 프로필을 나란히 작은 아이콘으로 표시";
+"multiprofile.style_circles" = "원형";
+"multiprofile.style_bars" = "막대";
+"multiprofile.style_dots" = "점";
+"multiprofile.style_percent" = "퍼센트";
 "multiprofile.select_profiles" = "표시할 프로필 선택:";
 "multiprofile.info" = "각 프로필은 세션(내부 링)과 주간(외부 링)을 프로필 이름과 함께 표시";
 "multiprofile.active_badge" = "활성";

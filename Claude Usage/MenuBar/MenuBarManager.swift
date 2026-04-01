@@ -7,6 +7,7 @@ class MenuBarManager: NSObject, ObservableObject {
     private var statusBarUIManager: StatusBarUIManager?
     private var refreshTimer: Timer?
     @Published private(set) var usage: ClaudeUsage = .empty
+    @Published private(set) var providerSnapshot: ProviderUsageSnapshot?
     @Published private(set) var status: ClaudeStatus = .unknown
     @Published private(set) var apiUsage: APIUsage?
     @Published private(set) var isRefreshing: Bool = false
@@ -21,6 +22,7 @@ class MenuBarManager: NSObject, ObservableObject {
     @Published private(set) var clickedProfileId: UUID?
     @Published private(set) var clickedProfileUsage: ClaudeUsage?
     @Published private(set) var clickedProfileAPIUsage: APIUsage?
+    @Published private(set) var clickedProfileSnapshot: ProviderUsageSnapshot?
 
     // Track when refresh was last triggered (for distinguishing user vs auto refresh)
     private var lastRefreshTriggerTime: Date = .distantPast
@@ -74,6 +76,9 @@ class MenuBarManager: NSObject, ObservableObject {
 
     // Track which profiles have already triggered auto-switch (prevents repeated firing)
     private var autoSwitchedProfileIds: Set<UUID> = []
+
+    // Cache provider snapshots for non-Claude profiles so the popover can render them
+    private var cachedProviderSnapshots: [UUID: ProviderUsageSnapshot] = [:]
 
     // Observer for refresh interval changes
     private var refreshIntervalObserver: NSKeyValueObservation?
@@ -353,6 +358,12 @@ class MenuBarManager: NSObject, ObservableObject {
             } else {
                 self.apiUsage = nil
             }
+
+            if profile.providerKind == .claude {
+                self.providerSnapshot = nil
+            } else {
+                self.providerSnapshot = self.cachedProviderSnapshots[profile.id] ?? .empty(for: profile.providerKind)
+            }
         }
 
         // 2. Update refresh interval with profile's setting
@@ -388,7 +399,7 @@ class MenuBarManager: NSObject, ObservableObject {
 
         // Recreate popover with fresh content
         let newPopover = NSPopover()
-        newPopover.contentSize = Constants.WindowSizes.popoverSize
+        newPopover.contentSize = preferredPopoverSize()
         newPopover.behavior = .semitransient
         newPopover.animates = true
         newPopover.delegate = self
@@ -452,7 +463,7 @@ class MenuBarManager: NSObject, ObservableObject {
 
     private func setupPopover() {
         let popover = NSPopover()
-        popover.contentSize = Constants.WindowSizes.popoverSize
+        popover.contentSize = preferredPopoverSize()
         popover.behavior = .semitransient  // Changed to allow detaching
         popover.animates = true
         popover.delegate = self
@@ -466,7 +477,7 @@ class MenuBarManager: NSObject, ObservableObject {
         let contentView = PopoverContentView(
             manager: self,
             onRefresh: { [weak self] in
-                self?.refreshUsage()
+                self?.refreshPopoverUsage()
             },
             onPreferences: { [weak self] in
                 self?.closePopoverOrWindow()
@@ -502,12 +513,16 @@ class MenuBarManager: NSObject, ObservableObject {
             clickedProfileId = profileId
             clickedProfileUsage = profile.claudeUsage ?? .empty
             clickedProfileAPIUsage = profile.apiUsage
+            clickedProfileSnapshot = profile.providerKind == .claude
+                ? nil
+                : (cachedProviderSnapshots[profile.id] ?? .empty(for: profile.providerKind))
             LoggingService.shared.log("Multi-profile popover: showing data for '\(profile.name)'")
         } else {
             // Single profile mode - use active profile
             clickedProfileId = profileManager.activeProfile?.id
             clickedProfileUsage = nil  // Will use manager.usage
             clickedProfileAPIUsage = nil  // Will use manager.apiUsage
+            clickedProfileSnapshot = nil
         }
 
         // If there's a detached window, close it
@@ -520,6 +535,7 @@ class MenuBarManager: NSObject, ObservableObject {
 
         // Otherwise toggle the popover
         if let popover = popover {
+            popover.contentSize = preferredPopoverSize()
             if popover.isShown {
                 // Check if clicking the same button or a different one
                 if currentPopoverButton === button {
@@ -531,9 +547,11 @@ class MenuBarManager: NSObject, ObservableObject {
                     stopMonitoringForOutsideClicks()
                     // Update content view controller for new profile data
                     popover.contentViewController = createContentViewController()
+                    popover.contentSize = preferredPopoverSize()
                     popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
                     currentPopoverButton = button
                     startMonitoringForOutsideClicks()
+                    refreshPopoverUsage()
                 }
             } else {
                 // Popover not shown - show it
@@ -541,11 +559,24 @@ class MenuBarManager: NSObject, ObservableObject {
                 stopMonitoringForOutsideClicks()
                 // Update content view controller for current profile data
                 popover.contentViewController = createContentViewController()
+                popover.contentSize = preferredPopoverSize()
                 popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
                 currentPopoverButton = button
                 startMonitoringForOutsideClicks()
+                refreshPopoverUsage()
             }
         }
+    }
+
+    private func preferredPopoverSize() -> NSSize {
+        let visibleProfileCount = max(popoverDisplayProfiles().count, 1)
+        let computedHeight = Constants.WindowSizes.expandedPopoverBaseHeight
+            + (CGFloat(visibleProfileCount) * Constants.WindowSizes.expandedPopoverSectionHeight)
+
+        return NSSize(
+            width: Constants.WindowSizes.expandedPopoverWidth,
+            height: min(Constants.WindowSizes.expandedPopoverMaxHeight, computedHeight)
+        )
     }
 
     private func closePopover() {
@@ -840,6 +871,65 @@ class MenuBarManager: NSObject, ObservableObject {
 
         LoggingService.shared.log("MenuBarManager: Refreshing \(selectedProfiles.count) selected profiles for multi-profile mode")
 
+        refreshProfiles(selectedProfiles, updateStatusBarIconsForCurrentMode: true)
+    }
+
+    /// Profiles that should be available in the popover selector.
+    /// In single-profile menu bar mode we still want the popup to expose all
+    /// configured provider profiles, not just the active one.
+    func popoverDisplayProfiles() -> [Profile] {
+        let activeProfileId = profileManager.activeProfile?.id
+
+        let candidates = profileManager.profiles.filter { profile in
+            profile.hasUsageCredentials || profile.id == activeProfileId
+        }
+
+        return candidates.sorted { lhs, rhs in
+            if lhs.id == activeProfileId { return true }
+            if rhs.id == activeProfileId { return false }
+            if lhs.providerKind != rhs.providerKind {
+                return lhs.providerKind.rawValue < rhs.providerKind.rawValue
+            }
+            return lhs.name.localizedCaseInsensitiveCompare(rhs.name) == .orderedAscending
+        }
+    }
+
+    /// Returns the latest provider-neutral snapshot for a given profile using
+    /// live manager state for the active profile and cached/saved state for the rest.
+    func snapshotForPopover(profile: Profile) -> ProviderUsageSnapshot {
+        let isActiveProfile = profile.id == profileManager.activeProfile?.id
+
+        switch profile.providerKind {
+        case .claude:
+            let claudeUsage = isActiveProfile ? usage : (profile.claudeUsage ?? .empty)
+            let apiUsage = isActiveProfile ? self.apiUsage : profile.apiUsage
+            return ClaudeUsageSnapshotAdapter.snapshot(from: claudeUsage, apiUsage: apiUsage)
+
+        case .codex, .copilot:
+            if isActiveProfile, let providerSnapshot {
+                return providerSnapshot
+            }
+            return cachedProviderSnapshots[profile.id] ?? .empty(for: profile.providerKind)
+        }
+    }
+
+    /// Refreshes every profile surfaced inside the popover so the in-popover
+    /// selector can switch instantly without showing stale placeholders.
+    func refreshPopoverUsage() {
+        let profiles = popoverDisplayProfiles().filter(\.hasUsageCredentials)
+
+        guard !profiles.isEmpty else {
+            refreshUsage()
+            return
+        }
+
+        LoggingService.shared.log("MenuBarManager: Refreshing \(profiles.count) profiles for popover display")
+        refreshProfiles(profiles, updateStatusBarIconsForCurrentMode: true)
+    }
+
+    private func refreshProfiles(_ profiles: [Profile], updateStatusBarIconsForCurrentMode: Bool) {
+        guard !profiles.isEmpty else { return }
+
         Task {
             await MainActor.run {
                 self.isRefreshing = true
@@ -856,9 +946,32 @@ class MenuBarManager: NSObject, ObservableObject {
                 LoggingService.shared.log("MenuBarManager: Failed to fetch status - [\(appError.code.rawValue)] \(appError.message)")
             }
 
-            // Fetch usage for each selected profile
-            for profile in selectedProfiles {
+            // Fetch usage for each requested profile
+            for profile in profiles {
                 LoggingService.shared.log("MenuBarManager: Fetching usage for profile '\(profile.name)'")
+
+                if profile.providerKind != .claude {
+                    do {
+                        let snapshot = try await fetchProviderSnapshot(for: profile)
+
+                        await MainActor.run {
+                            self.cachedProviderSnapshots[profile.id] = snapshot
+                            UsageHistoryService.shared.recordProviderSnapshot(
+                                for: profile.id,
+                                provider: profile.providerKind,
+                                snapshot: snapshot
+                            )
+
+                            if profile.id == self.profileManager.activeProfile?.id {
+                                self.providerSnapshot = snapshot
+                            }
+                        }
+                    } catch {
+                        LoggingService.shared.logError("Failed to refresh provider snapshot for profile '\(profile.name)': \(error.localizedDescription)")
+                    }
+
+                    continue
+                }
 
                 // Capture previous usage for reset detection
                 let previousUsage = profile.claudeUsage
@@ -931,11 +1044,17 @@ class MenuBarManager: NSObject, ObservableObject {
 
             // Update all icons once after all profiles are refreshed
             await MainActor.run {
-                let config = self.profileManager.multiProfileConfig
-                self.statusBarUIManager?.updateMultiProfileButtons(
-                    profiles: self.profileManager.profiles,
-                    config: config
-                )
+                if updateStatusBarIconsForCurrentMode {
+                    if self.profileManager.displayMode == .multi {
+                        let config = self.profileManager.multiProfileConfig
+                        self.statusBarUIManager?.updateMultiProfileButtons(
+                            profiles: self.profileManager.profiles,
+                            config: config
+                        )
+                    } else {
+                        self.updateAllStatusBarIcons()
+                    }
+                }
                 self.consecutiveRefreshFailures = 0
                 self.lastRefreshError = nil
                 self.hasCredentialError = false
@@ -1055,6 +1174,73 @@ class MenuBarManager: NSObject, ObservableObject {
         }
 
         LoggingService.shared.log("MenuBarManager: Proceeding with refresh")
+
+        if profile.providerKind != .claude {
+            Task {
+                await MainActor.run {
+                    self.isRefreshing = true
+                }
+
+                async let statusResult = statusService.fetchStatus()
+                var usageSuccess = false
+
+                do {
+                    let snapshot = try await self.fetchProviderSnapshot(for: profile)
+
+                    await MainActor.run {
+                        self.providerSnapshot = snapshot
+                        self.cachedProviderSnapshots[profile.id] = snapshot
+                        UsageHistoryService.shared.recordProviderSnapshot(
+                            for: profile.id,
+                            provider: profile.providerKind,
+                            snapshot: snapshot
+                        )
+
+                        self.consecutiveRefreshFailures = 0
+                        self.lastRefreshError = nil
+                        self.hasCredentialError = false
+                        self.lastSuccessfulRefreshTime = Date()
+                    }
+
+                    usageSuccess = true
+                } catch {
+                    let appError = AppError.wrap(error)
+                    ErrorLogger.shared.log(appError, severity: .error)
+
+                    await MainActor.run {
+                        self.consecutiveRefreshFailures += 1
+                        self.lastRefreshError = appError.message
+
+                        if abs(self.lastRefreshTriggerTime.timeIntervalSinceNow) < 5 {
+                            ErrorPresenter.shared.showAlert(for: appError)
+                        } else {
+                            LoggingService.shared.logError("MenuBarManager: Failed to fetch provider usage - [\(appError.code.rawValue)] \(appError.message)")
+                        }
+                    }
+                }
+
+                do {
+                    let newStatus = try await statusResult
+                    await MainActor.run {
+                        self.status = newStatus
+                    }
+                } catch {
+                    let appError = AppError.wrap(error)
+                    ErrorLogger.shared.log(appError, severity: .info)
+                    LoggingService.shared.log("MenuBarManager: Failed to fetch status - [\(appError.code.rawValue)] \(appError.message)")
+                }
+
+                await MainActor.run {
+                    self.isRefreshing = false
+
+                    if usageSuccess && abs(self.lastRefreshTriggerTime.timeIntervalSinceNow) < 5 {
+                        self.showSuccessNotification()
+                    }
+                }
+            }
+            return
+        }
+
         Task {
             // Set loading state (keep existing data visible during refresh)
             await MainActor.run {

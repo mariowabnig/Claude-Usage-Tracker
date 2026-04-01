@@ -15,6 +15,10 @@ class CopilotAuthService {
 
     private init() {}
 
+    var hasCLIToken: Bool {
+        readCLIToken() != nil
+    }
+
     // MARK: - GitHub OAuth Device Flow
 
     /// GitHub OAuth client ID for device flow
@@ -75,7 +79,7 @@ class CopilotAuthService {
     /// Validates an existing GitHub token
     func validateToken(_ token: String) async -> Bool {
         var request = URLRequest(url: URL(string: "https://api.github.com/user")!)
-        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.setValue("Bearer \(token.trimmingCharacters(in: .whitespacesAndNewlines))", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Accept")
 
         do {
@@ -87,6 +91,36 @@ class CopilotAuthService {
             LoggingService.shared.logError("CopilotAuthService: Token validation failed: \(error.localizedDescription)")
         }
         return false
+    }
+
+    /// Reads the currently authenticated GitHub CLI token if available.
+    /// This provides a low-friction fallback for Copilot profiles when a token
+    /// has not been manually saved in provider credentials yet.
+    func readCLIToken() -> String? {
+        let process = Process()
+        let stdout = Pipe()
+        let stderr = Pipe()
+
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
+        process.arguments = ["gh", "auth", "token"]
+        process.standardOutput = stdout
+        process.standardError = stderr
+
+        do {
+            try process.run()
+            process.waitUntilExit()
+
+            guard process.terminationStatus == 0 else { return nil }
+
+            let data = stdout.fileHandleForReading.readDataToEndOfFile()
+            let token = String(data: data, encoding: .utf8)?
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+
+            return token?.isEmpty == false ? token : nil
+        } catch {
+            LoggingService.shared.logError("CopilotAuthService: Failed to read GitHub CLI token: \(error.localizedDescription)")
+            return nil
+        }
     }
 }
 

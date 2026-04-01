@@ -3,7 +3,7 @@
 <div align="center">
   <img src=".github/cover.jpg" alt="Claude Usage Tracker" width="100%">
 
-  **A native macOS menu bar application for real-time monitoring of Claude AI usage limits**
+  **A native macOS menu bar application for monitoring Claude, Codex, and GitHub Copilot usage**
 
   ![macOS](https://img.shields.io/badge/macOS-14.0+-black?style=flat-square&logo=apple)
   ![Swift](https://img.shields.io/badge/Swift-5.0+-orange?style=flat-square&logo=swift)
@@ -25,14 +25,15 @@
 
 ## Overview
 
-Claude Usage Tracker is a lightweight, native macOS menu bar application that provides real-time monitoring of your Claude AI usage limits. Built entirely with Swift and SwiftUI, it offers a clean, intuitive interface to track your 5-hour session window, weekly usage limits, and Opus-specific consumption.
+Claude Usage Tracker is a lightweight, native macOS menu bar application for monitoring Claude, Codex, and GitHub Copilot usage. Built entirely with Swift and SwiftUI, it provides a clean, intuitive interface for tracking Claude session and weekly windows, provider-specific usage quotas, API billing, and per-profile history.
 
 ### Key Capabilities
 
-- **Multi-Profile Support**: Manage unlimited Claude accounts with isolated credentials and settings
-- **Multi-Profile Display**: Monitor all profiles simultaneously in the menu bar
-- **Claude Code Integration**: Sync CLI accounts and auto-switch credentials when changing profiles
-- **Real-Time Monitoring**: Track session, weekly, API console usage, and API costs per profile
+- **Multi-Provider Profiles**: Create Claude, Codex, and GitHub Copilot profiles with isolated credentials and settings
+- **Unified Usage Popup**: View all visible profiles together in one stacked popover with a shared visual style
+- **Flexible Menu Bar Display**: Show a single active profile or multiple profiles side-by-side in the menu bar
+- **Claude Code Integration**: Sync CLI accounts to profiles with safer opt-in credential switching
+- **Real-Time Monitoring**: Track Claude session and weekly usage, Codex usage windows, Copilot premium interactions, and API costs per profile
 - **Usage History**: Interactive charts tracking session, weekly, and billing data over time
 - **Global Shortcuts**: System-wide keyboard shortcuts (no Accessibility permission)
 - **Headless Mode**: Works on headless Macs via Remote Desktop
@@ -58,6 +59,7 @@ Claude Usage Tracker is a lightweight, native macOS menu bar application that pr
 
 ## What's New
 
+- **v3.1.0 (2026-04-01)**: Multi-provider profile support for Claude, Codex, and GitHub Copilot; unified provider-neutral popup cards; real Codex/Copilot usage bars; stacked all-profile popup overview; safer Claude Code profile switching; localization updates for the new multi-profile controls
 - **v3.0.3 (2026-03-10)**: 6-tier pace system (Comfortable → Runaway) with colored pace markers on progress bars, 3 color modes (Multi-Color/Greyscale/Single Color) for menu bar and statusline, label toggles (Ctx/Usage/Reset), 24-hour time format, terminal-matching preview colors, CPU spin-loop fix in menu bar rendering
 
 - **v3.0.2 (2026-03-10)**: API cost tracking with daily chart, browser-based authentication (WKWebView sign-in), rate limit header usage for CLI OAuth, auto-sizing popover, 3-way time display picker, adaptive green color, session key expiry tracking & notifications
@@ -253,14 +255,14 @@ After creating the file, launch the app and it will automatically detect the ses
 
 ## Multi-Profile Management
 
-**New in v2.2.0**: Claude Usage Tracker now supports unlimited profiles, allowing you to manage multiple Claude accounts seamlessly with automatic credential switching.
+Claude Usage Tracker supports unlimited profiles, so you can manage separate Claude, Codex, and GitHub Copilot accounts with isolated credentials and settings.
 
 **New in v3.0.0**: Auto-switch profiles when session limit reached, usage history tracking, and global keyboard shortcuts!
 
 ### Features
 
 #### Profile Management
-- **Unlimited Profiles**: Create as many profiles as needed for different Claude accounts
+- **Unlimited Profiles**: Create as many profiles as needed for Claude, Codex, and GitHub Copilot
 - **Multi-Profile Display**: Show all profiles in the menu bar at once
   - Toggle between Single mode (active profile only) and Multi mode (all profiles)
   - Each profile displays with its own icon style and settings
@@ -268,19 +270,20 @@ After creating the file, launch the app and it will automatically detect the ses
   - Independent refresh rates per profile
 - **Fun Auto-Names**: Profiles auto-generate with names like "Quantum Llama", "Sneaky Penguin", "Turbo Sloth"
 - **Custom Names**: Rename profiles to whatever you prefer
-- **Quick Switching**: Switch profiles instantly via popover dropdown or settings sidebar
-- **Profile Badges**: Visual indicators show which profiles have Claude.ai credentials and CLI accounts
+- **Quick Switching**: Switch profiles instantly from settings and profile management views
+- **Provider Picker**: Choose Claude, Codex, or Copilot when creating a profile
+- **Profile Badges**: Visual indicators show provider type and connection state
 
 #### Claude Code CLI Integration
 - **One-Click Sync**: Sync your currently logged-in Claude Code account to a profile
-- **Automatic Switching**: When you switch profiles, CLI credentials automatically update
+- **Safer Switching**: Profile changes no longer overwrite your system Claude Code login by default
 - **Credential Display**: View masked access tokens and subscription type
 - **Smart Re-Sync**: Credentials automatically refresh before profile switches to capture CLI changes
 - **Per-Profile CLI**: Each profile can have its own Claude Code account or share the system account
 
 #### Per-Profile Settings
 Each profile has isolated settings:
-- **Credentials**: Separate Claude.ai session keys, API keys, and organization IDs
+- **Credentials**: Separate Claude.ai session keys, Codex auth detection, Copilot GitHub auth, API keys, and organization IDs
 - **Appearance**: Independent icon styles and monochrome mode
 - **Refresh Interval**: Custom refresh rates (5-300 seconds)
 - **Auto-Start Sessions**: Enable/disable per profile
@@ -289,7 +292,6 @@ Each profile has isolated settings:
 
 #### Profile Switcher
 Access profile switcher in multiple places:
-- **Popover Header**: Dropdown menu with profile badges
 - **Settings Sidebar**: Active profile picker with visual indicators
 - **Manage Profiles Tab**: Full profile management interface
 
@@ -298,6 +300,7 @@ Access profile switcher in multiple places:
 1. **Create Profiles**:
    - Go to Settings → Manage Profiles
    - Click "Create New Profile"
+   - Choose Claude, Codex, or Copilot
    - Auto-generates a fun name or enter your own
 
 2. **Configure Credentials**:
@@ -309,12 +312,11 @@ Access profile switcher in multiple places:
    - Log in to Claude Code in terminal
    - Open Settings → CLI Account
    - Click "Sync from Claude Code"
-   - Now when you switch profiles, CLI credentials auto-update!
+   - The synced credentials stay attached to that profile without automatically replacing your system login on every profile switch
 
 4. **Switch Profiles**:
-   - Click popover dropdown
-   - Or use settings sidebar picker
-   - CLI credentials apply automatically
+   - Use the settings sidebar picker or Manage Profiles
+   - In multi-profile mode, the popover shows all visible profiles together
 
 
 ---
@@ -392,9 +394,10 @@ Access profile switcher in multiple places:
 
 Click the menu bar icon to access:
 
-- **Session Usage**: 5-hour rolling window percentage and reset time
-- **Weekly Usage**: Overall weekly consumption across all models
-- **Opus Usage**: Weekly Opus-specific usage (if applicable)
+- **Stacked Usage Overview**: See all popover-visible profiles together without an in-popup profile selector
+- **Claude Usage**: 5-hour session percentage, weekly usage, reset times, and API cost details
+- **Codex Usage**: Session and weekly usage bars plus account and credit status when available
+- **GitHub Copilot Usage**: Premium interactions, chat quotas, and reset dates when exposed by GitHub
 - **API Cost**: Monthly cost with daily chart and per-key breakdown (if Console configured)
 - **Quick Actions**: Refresh and Settings
 
@@ -406,7 +409,7 @@ Access comprehensive settings through the menu bar popover → Settings button. 
 
 #### Profile Switcher (Sidebar)
 - **Quick Profile Selection**: Dropdown to switch between profiles instantly
-- **Profile Badges**: Visual indicators for Claude.ai 🔵 and CLI ✅ credentials
+- **Profile Badges**: Visual indicators for provider type and credential state
 - **Active Profile Display**: Shows currently selected profile
 
 #### Claude.AI (Credentials)
@@ -432,7 +435,7 @@ Configure API console usage tracking:
 Sync Claude Code CLI credentials:
 - **One-Click Sync**: Copy currently logged-in Claude Code account to profile
 - **Credential Display**: View masked access token and subscription type
-- **Auto-Switch**: Credentials automatically update when changing profiles
+- **Safe Default**: Switching profiles does not overwrite the system Claude Code login unless explicit auto-apply support is re-enabled
 - **Remove Sync**: Unlink CLI account from profile
 
 #### Appearance
@@ -463,12 +466,14 @@ Per-profile behavior configuration:
 #### Manage Profiles
 Create and manage multiple profiles:
 - **Create Profiles**: Add new profiles with fun auto-generated names
+- **Choose Provider**: Select Claude, Codex, or Copilot per profile
 - **Rename Profiles**: Customize profile names
 - **Delete Profiles**: Remove unused profiles (minimum 1 required)
 - **Profile List**: View all profiles with credential status indicators
 - **Display Mode Toggle**: Switch between Single and Multi mode
   - Single Mode: Show only the active profile in menu bar
   - Multi Mode: Show all profiles simultaneously in menu bar
+- **Popover Overview**: Multi-profile popover stacks all visible providers in one larger window without internal scrolling
 - **Auto-Switch Profile**: Automatically switch to next available profile when session limit reached
 
 #### Language

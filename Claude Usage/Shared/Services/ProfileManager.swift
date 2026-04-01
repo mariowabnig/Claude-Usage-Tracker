@@ -214,16 +214,20 @@ class ProfileManager: ObservableObject {
             return
         }
 
-        // Apply new profile's CLI credentials (if available)
-        LoggingService.shared.log("Checking CLI credentials for profile '\(updatedProfile.name)': hasJSON=\(updatedProfile.cliCredentialsJSON != nil)")
+        // Applying a profile's Claude Code CLI credentials overwrites the
+        // system login in Keychain, so keep this opt-in and disabled by default.
+        let shouldApplyCLICredentials = SharedDataStore.shared.loadAutoApplyCLICredentialsOnProfileSwitch()
+        LoggingService.shared.log("Checking CLI credentials for profile '\(updatedProfile.name)': hasJSON=\(updatedProfile.cliCredentialsJSON != nil), autoApply=\(shouldApplyCLICredentials)")
 
-        if updatedProfile.cliCredentialsJSON != nil {
+        if shouldApplyCLICredentials, updatedProfile.cliCredentialsJSON != nil {
             do {
                 try cliSyncService.applyProfileCredentials(updatedProfile.id)
                 LoggingService.shared.log("✓ Applied CLI credentials for: \(updatedProfile.name)")
             } catch {
                 LoggingService.shared.logError("Failed to apply CLI credentials (non-fatal)", error: error)
             }
+        } else if !shouldApplyCLICredentials {
+            LoggingService.shared.log("Skipping CLI credential apply for profile '\(updatedProfile.name)' because auto-apply is disabled")
         } else {
             LoggingService.shared.log("⚠️ Profile '\(updatedProfile.name)' has no CLI credentials JSON")
         }

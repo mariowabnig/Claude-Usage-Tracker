@@ -523,6 +523,10 @@
 "multiprofile.subtitle" = "メニューバーに複数のプロファイルを表示";
 "multiprofile.enable_title" = "複数プロファイルを表示";
 "multiprofile.enable_description" = "選択したプロファイルをコンパクトなアイコンとして並べて表示";
+"multiprofile.style_circles" = "円";
+"multiprofile.style_bars" = "バー";
+"multiprofile.style_dots" = "ドット";
+"multiprofile.style_percent" = "パーセント";
 "multiprofile.select_profiles" = "表示するプロファイルを選択：";
 "multiprofile.info" = "各プロファイルはセッション（内側のリング）と週間（外側のリング）をプロファイル名と共に表示";
 "multiprofile.active_badge" = "アクティブ";
@@ -567,6 +571,8 @@
 /* ==================== */
 "appearance.global_subtitle" = "メニューバーアイコンの動作をカスタマイズ";
 "appearance.metrics_subtitle" = "メニューバーに表示するメトリックを選択";
+"appearance.all_metrics_off_title" = "アプリアイコンモード";
+"appearance.all_metrics_off_description" = "すべてのメトリックがオフです。代わりにメニューバーにアプリアイコンが表示されます。クリックするとプロファイルと設定を開けます。";
 
 /* ==================== */
 /* MARK: - Metric Card */

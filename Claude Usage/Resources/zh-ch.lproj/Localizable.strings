@@ -518,6 +518,10 @@
 "multiprofile.show_week_description" = "除了会话使用量外，还显示每周使用量";
 "multiprofile.show_label" = "显示配置文件标签";
 "multiprofile.show_label_description" = "在图标下方显示配置文件名称";
+"multiprofile.style_circles" = "圆环";
+"multiprofile.style_bars" = "条形";
+"multiprofile.style_dots" = "圆点";
+"multiprofile.style_percent" = "百分比";
 "multiprofile.use_system_color" = "单色";
 "multiprofile.use_system_color_description" = "使用白色而不是状态颜色（绿色/橙色/红色）";
 

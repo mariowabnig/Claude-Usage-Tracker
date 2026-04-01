@@ -8,55 +8,217 @@
 import Foundation
 import SwiftUI
 
-/// Fetches Codex usage data using the conservative approach (Option A from the plan).
-/// Shows account connected state, auth health, and last refresh time.
-/// Does not attempt undocumented live usage endpoints.
+/// Fetches Codex usage data from the same OAuth-backed usage endpoint used by
+/// the Codex CLI / ChatGPT-backed Codex flow.
 @MainActor
 class CodexUsageProviderFetcher: UsageProviderFetcher {
     let providerKind: UsageProviderKind = .codex
 
     private let authService: CodexAuthService
+    private let session: URLSession
 
-    init(authService: CodexAuthService = .shared) {
-        self.authService = authService
+    init(authService: CodexAuthService? = nil, session: URLSession = .shared) {
+        self.authService = authService ?? CodexAuthService.shared
+        self.session = session
     }
 
     func fetchUsage(for profile: Profile) async throws -> ProviderUsageSnapshot {
         let validation = authService.validateAuth()
 
-        var rows: [ProviderMetricRow] = []
-        var cards: [ProviderSupplementaryCard] = []
-
-        // Connection status card
-        cards.append(ProviderSupplementaryCard(
-            id: "codex-status",
-            kind: .providerStatus(
-                connected: validation.isValid,
-                statusText: validation.statusText
-            )
-        ))
-
-        // If we have a valid connection, show what we can
-        if validation.isValid {
-            if let email = validation.accountEmail {
-                cards.append(ProviderSupplementaryCard(
-                    id: "codex-account",
-                    kind: .keyValue(
-                        label: "Account",
-                        value: email,
-                        valueColor: nil
+        guard validation.isValid,
+              let authState = authService.readAuthState(),
+              let accessToken = authState.resolvedAccessToken,
+              !accessToken.isEmpty
+        else {
+            return ProviderUsageSnapshot(
+                provider: .codex,
+                title: "Codex",
+                subtitle: "Not connected",
+                primaryRows: [],
+                secondaryCards: [
+                    ProviderSupplementaryCard(
+                        id: "codex-status",
+                        kind: .providerStatus(connected: false, statusText: validation.statusText)
                     )
-                ))
-            }
+                ]
+            )
         }
 
-        return ProviderUsageSnapshot(
-            provider: .codex,
-            title: "Codex",
-            subtitle: validation.isValid ? "Connected" : "Not connected",
-            primaryRows: rows,
-            secondaryCards: cards,
-            fetchedAt: Date()
-        )
+        do {
+            let response = try await fetchUsageResponse(
+                accessToken: accessToken,
+                accountId: authState.tokens?.accountId ?? authState.accountId
+            )
+
+            var rows: [ProviderMetricRow] = []
+            var cards: [ProviderSupplementaryCard] = [
+                ProviderSupplementaryCard(
+                    id: "codex-status",
+                    kind: .providerStatus(connected: true, statusText: "Connected")
+                )
+            ]
+
+            if let primary = response.rateLimit?.primaryWindow {
+                rows.append(ProviderMetricRow(
+                    id: "codex-primary-window",
+                    title: "Session Usage",
+                    subtitle: "5-hour window",
+                    usedPercentage: Double(primary.usedPercent),
+                    resetTime: Date(timeIntervalSince1970: TimeInterval(primary.resetAt)),
+                    periodDuration: TimeInterval(primary.limitWindowSeconds),
+                    supportsPaceMarkers: true,
+                    accentStyle: .primary
+                ))
+            }
+
+            if let secondary = response.rateLimit?.secondaryWindow {
+                rows.append(ProviderMetricRow(
+                    id: "codex-secondary-window",
+                    title: "Weekly Usage",
+                    tag: "Weekly",
+                    usedPercentage: Double(secondary.usedPercent),
+                    resetTime: Date(timeIntervalSince1970: TimeInterval(secondary.resetAt)),
+                    periodDuration: TimeInterval(secondary.limitWindowSeconds),
+                    supportsPaceMarkers: true,
+                    accentStyle: .secondary
+                ))
+            }
+
+            if let accountLabel = validation.accountEmail {
+                cards.append(ProviderSupplementaryCard(
+                    id: "codex-account",
+                    kind: .keyValue(label: "Account", value: accountLabel, valueColor: nil)
+                ))
+            }
+
+            if let credits = response.credits {
+                if credits.unlimited {
+                    cards.append(ProviderSupplementaryCard(
+                        id: "codex-credits-unlimited",
+                        kind: .keyValue(label: "Credits", value: "Unlimited", valueColor: .adaptiveGreen)
+                    ))
+                } else if let balance = credits.balance {
+                    cards.append(ProviderSupplementaryCard(
+                        id: "codex-credits-balance",
+                        kind: .keyValue(
+                            label: "Credits",
+                            value: String(format: "%.0f remaining", balance),
+                            valueColor: balance > 0 ? .adaptiveGreen : .secondary
+                        )
+                    ))
+                }
+            }
+
+            return ProviderUsageSnapshot(
+                provider: .codex,
+                title: "Codex",
+                subtitle: response.planType?.capitalized ?? "Connected",
+                primaryRows: rows,
+                secondaryCards: cards,
+                fetchedAt: Date()
+            )
+        } catch {
+            LoggingService.shared.logError("Codex usage fetch failed: \(error.localizedDescription)")
+            return ProviderUsageSnapshot(
+                provider: .codex,
+                title: "Codex",
+                subtitle: "Connection issue",
+                primaryRows: [],
+                secondaryCards: [
+                    ProviderSupplementaryCard(
+                        id: "codex-status",
+                        kind: .providerStatus(connected: false, statusText: "Usage fetch failed")
+                    )
+                ],
+                fetchedAt: Date()
+            )
+        }
+    }
+
+    private func fetchUsageResponse(accessToken: String, accountId: String?) async throws -> CodexUsageAPIResponse {
+        var request = URLRequest(url: URL(string: "https://chatgpt.com/backend-api/wham/usage")!)
+        request.httpMethod = "GET"
+        request.timeoutInterval = 30
+        request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
+        request.setValue("codex-cli", forHTTPHeaderField: "User-Agent")
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+
+        if let accountId, !accountId.isEmpty {
+            request.setValue(accountId, forHTTPHeaderField: "ChatGPT-Account-Id")
+        }
+
+        let (data, response) = try await session.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw URLError(.badServerResponse)
+        }
+
+        guard (200...299).contains(httpResponse.statusCode) else {
+            throw URLError(httpResponse.statusCode == 401 || httpResponse.statusCode == 403
+                ? .userAuthenticationRequired
+                : .badServerResponse)
+        }
+
+        return try JSONDecoder().decode(CodexUsageAPIResponse.self, from: data)
+    }
+}
+
+private struct CodexUsageAPIResponse: Decodable {
+    let planType: String?
+    let rateLimit: CodexRateLimit?
+    let credits: CodexCredits?
+
+    enum CodingKeys: String, CodingKey {
+        case planType = "plan_type"
+        case rateLimit = "rate_limit"
+        case credits
+    }
+}
+
+private struct CodexRateLimit: Decodable {
+    let primaryWindow: CodexRateWindow?
+    let secondaryWindow: CodexRateWindow?
+
+    enum CodingKeys: String, CodingKey {
+        case primaryWindow = "primary_window"
+        case secondaryWindow = "secondary_window"
+    }
+}
+
+private struct CodexRateWindow: Decodable {
+    let usedPercent: Int
+    let limitWindowSeconds: Int
+    let resetAt: Int
+
+    enum CodingKeys: String, CodingKey {
+        case usedPercent = "used_percent"
+        case limitWindowSeconds = "limit_window_seconds"
+        case resetAt = "reset_at"
+    }
+}
+
+private struct CodexCredits: Decodable {
+    let hasCredits: Bool
+    let unlimited: Bool
+    let balance: Double?
+
+    enum CodingKeys: String, CodingKey {
+        case hasCredits = "has_credits"
+        case unlimited
+        case balance
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        hasCredits = (try? container.decode(Bool.self, forKey: .hasCredits)) ?? false
+        unlimited = (try? container.decode(Bool.self, forKey: .unlimited)) ?? false
+        if let numeric = try? container.decode(Double.self, forKey: .balance) {
+            balance = numeric
+        } else if let intValue = try? container.decode(Int.self, forKey: .balance) {
+            balance = Double(intValue)
+        } else if let stringValue = try? container.decode(String.self, forKey: .balance) {
+            balance = Double(stringValue)
+        } else {
+            balance = nil
+        }
     }
 }

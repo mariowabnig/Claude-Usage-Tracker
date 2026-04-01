@@ -54,6 +54,13 @@ struct VisualEffectBackground: NSViewRepresentable {
     }
 }
 
+private struct PopoverDisplayEntry: Identifiable {
+    let profile: Profile
+    let snapshot: ProviderUsageSnapshot
+
+    var id: UUID { profile.id }
+}
+
 /// Native macOS popover interface - minimal, flat, system-style
 struct PopoverContentView: View {
     @ObservedObject var manager: MenuBarManager
@@ -74,26 +81,45 @@ struct PopoverContentView: View {
         return "?"
     }
 
-    // Computed properties for multi-profile mode support
-    private var displayUsage: ClaudeUsage {
-        manager.clickedProfileUsage ?? manager.usage
+    private var availableProfiles: [Profile] {
+        manager.popoverDisplayProfiles()
     }
 
-    private var displayAPIUsage: APIUsage? {
-        // When viewing a non-active profile, use only that profile's API data
-        // to avoid leaking the active profile's console data
-        if manager.clickedProfileUsage != nil {
-            return manager.clickedProfileAPIUsage
+    private var displayEntries: [PopoverDisplayEntry] {
+        availableProfiles.map { profile in
+            PopoverDisplayEntry(profile: profile, snapshot: manager.snapshotForPopover(profile: profile))
         }
-        return manager.apiUsage
+    }
+
+    private var singleEntry: PopoverDisplayEntry? {
+        displayEntries.count == 1 ? displayEntries.first : nil
+    }
+
+    private var headerProvider: UsageProviderKind? {
+        singleEntry?.snapshot.provider
+    }
+
+    private var headerSummaryText: String? {
+        guard singleEntry == nil else { return "Usage Overview" }
+        guard !displayEntries.isEmpty else { return "No connected profiles" }
+        return displayEntries.count == 1 ? displayEntries[0].profile.name : "\(displayEntries.count) profiles"
+    }
+
+    private var selectedClaudeUsageForInsights: ClaudeUsage? {
+        guard let singleEntry, singleEntry.profile.providerKind == .claude else { return nil }
+        if singleEntry.profile.id == profileManager.activeProfile?.id {
+            return manager.usage
+        }
+        return singleEntry.profile.claudeUsage
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             // Header
             SmartHeader(
-                usage: displayUsage,
                 status: manager.status,
+                provider: headerProvider,
+                summaryText: headerSummaryText,
                 isRefreshing: isRefreshing,
                 onRefresh: {
                     withAnimation(.easeInOut(duration: 0.3)) {
@@ -106,9 +132,7 @@ struct PopoverContentView: View {
                         }
                     }
                 },
-                onManageProfiles: onPreferences,
-                onPreferences: onPreferences,
-                clickedProfileId: manager.clickedProfileId
+                onPreferences: onPreferences
             )
 
             PopoverDivider()
@@ -142,68 +166,27 @@ struct PopoverContentView: View {
                 }
             }
 
-            // Viewing usage tag (shown in multi-profile mode)
-            if profileManager.displayMode == .multi,
-               let viewingProfile = manager.clickedProfileId.flatMap({ id in
-                   profileManager.profiles.first(where: { $0.id == id })
-               }) ?? profileManager.activeProfile {
-                HStack(spacing: 8) {
-                    // Profile initials avatar
-                    ZStack {
-                        Circle()
-                            .fill(Color.accentColor.opacity(0.15))
-                            .frame(width: 20, height: 20)
-
-                        Text(profileInitials(for: viewingProfile.name))
-                            .font(.system(size: 8, weight: .bold, design: .rounded))
-                            .foregroundColor(.accentColor)
-                    }
-
-                    Text(viewingProfile.name)
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundColor(.primary)
-                        .lineLimit(1)
-
-                    Spacer()
-
-                    if viewingProfile.id == profileManager.activeProfile?.id {
-                        Text("Active")
-                            .font(.system(size: 8, weight: .semibold))
-                            .foregroundColor(.accentColor)
-                            .padding(.horizontal, 5)
-                            .padding(.vertical, 2)
-                            .background(
-                                Capsule()
-                                    .fill(Color.accentColor.opacity(0.12))
-                            )
+            VStack(alignment: .leading, spacing: 10) {
+                if displayEntries.isEmpty {
+                    PopoverEmptyStateView()
+                } else {
+                    ForEach(displayEntries) { entry in
+                        PopoverUsageSection(
+                            profile: entry.profile,
+                            snapshot: entry.snapshot,
+                            isActive: entry.profile.id == profileManager.activeProfile?.id,
+                            initials: profileInitials(for: entry.profile.name),
+                            showInsights: showInsights && displayEntries.count == 1 && entry.profile.providerKind == .claude,
+                            insightsUsage: displayEntries.count == 1 ? selectedClaudeUsageForInsights : nil,
+                            showFooter: displayEntries.count == 1 && entry.profile.providerKind == .claude
+                        )
                     }
                 }
-                .padding(.horizontal, 14)
-                .padding(.vertical, 6)
-                .background(
-                    RoundedRectangle(cornerRadius: 6)
-                        .fill(Color.primary.opacity(0.03))
-                )
-                .padding(.horizontal, 10)
-                .padding(.top, 6)
             }
-
-            // Usage
-            SmartUsageDashboard(usage: displayUsage, apiUsage: displayAPIUsage)
-
-            // Contextual Insights
-            if showInsights {
-                PopoverDivider()
-                ContextualInsights(usage: displayUsage)
-                    .transition(.opacity)
-            }
-
-            // Peak hours schedule + weekly trend
-            PopoverInfoFooter()
-
+            .padding(.top, 8)
         }
         .padding(.bottom, 8)
-        .frame(width: 280)
+        .frame(width: 320)
         .background(VisualEffectBackground())
     }
 }
@@ -217,215 +200,14 @@ struct PopoverDivider: View {
     }
 }
 
-// MARK: - Profile Switcher Compact (for header)
-
-struct ProfileSwitcherCompact: View {
-    @StateObject private var profileManager = ProfileManager.shared
-    @State private var isHovered = false
-    let onManageProfiles: () -> Void
-
-    var body: some View {
-        Menu {
-            ForEach(profileManager.profiles) { profile in
-                Button(action: {
-                    Task {
-                        await profileManager.activateProfile(profile.id)
-                    }
-                }) {
-                    HStack(spacing: 8) {
-                        Image(systemName: "person.circle.fill")
-                            .font(.system(size: 12))
-
-                        Text(profile.name)
-                            .font(.system(size: 12, weight: .medium))
-
-                        Spacer()
-
-                        HStack(spacing: 4) {
-                            if profile.hasCliAccount {
-                                Image(systemName: "terminal.fill")
-                                    .font(.system(size: 9))
-                                    .foregroundColor(.adaptiveGreen)
-                            }
-
-                            if profile.claudeSessionKey != nil {
-                                Image(systemName: "checkmark.circle.fill")
-                                    .font(.system(size: 9))
-                                    .foregroundColor(.blue)
-                            }
-
-                            if profile.id == profileManager.activeProfile?.id {
-                                Image(systemName: "checkmark")
-                                    .font(.system(size: 10, weight: .semibold))
-                                    .foregroundColor(.accentColor)
-                            }
-                        }
-                    }
-                }
-            }
-
-            Divider()
-
-            Button(action: onManageProfiles) {
-                HStack {
-                    Image(systemName: "plus.circle.fill")
-                        .font(.system(size: 12))
-                    Text("popover.manage_profiles".localized)
-                        .font(.system(size: 12, weight: .medium))
-                }
-            }
-        } label: {
-            Text(profileManager.activeProfile?.name ?? "popover.no_profile".localized)
-                .font(.system(size: 13, weight: .bold))
-                .foregroundColor(.primary)
-                .lineLimit(1)
-        }
-        .menuStyle(.borderlessButton)
-        .buttonStyle(.plain)
-    }
-}
-
-// MARK: - Profile Switcher Bar
-
-struct ProfileSwitcherBar: View {
-    @StateObject private var profileManager = ProfileManager.shared
-    @State private var isHovered = false
-    let onManageProfiles: () -> Void
-
-    var body: some View {
-        Menu {
-            ForEach(profileManager.profiles) { profile in
-                Button(action: {
-                    Task {
-                        await profileManager.activateProfile(profile.id)
-                    }
-                }) {
-                    HStack(spacing: 8) {
-                        Image(systemName: "person.circle.fill")
-                            .font(.system(size: 12))
-
-                        Text(profile.name)
-                            .font(.system(size: 12, weight: .medium))
-
-                        Spacer()
-
-                        HStack(spacing: 4) {
-                            if profile.hasCliAccount {
-                                Image(systemName: "terminal.fill")
-                                    .font(.system(size: 9))
-                                    .foregroundColor(.adaptiveGreen)
-                            }
-
-                            if profile.claudeSessionKey != nil {
-                                Image(systemName: "checkmark.circle.fill")
-                                    .font(.system(size: 9))
-                                    .foregroundColor(.blue)
-                            }
-
-                            if profile.id == profileManager.activeProfile?.id {
-                                Image(systemName: "checkmark")
-                                    .font(.system(size: 10, weight: .semibold))
-                                    .foregroundColor(.accentColor)
-                            }
-                        }
-                    }
-                }
-            }
-
-            Divider()
-
-            Button(action: onManageProfiles) {
-                HStack {
-                    Image(systemName: "plus.circle.fill")
-                        .font(.system(size: 12))
-                    Text("popover.manage_profiles".localized)
-                        .font(.system(size: 12, weight: .medium))
-                }
-            }
-        } label: {
-            HStack(spacing: 8) {
-                // Profile avatar
-                ZStack {
-                    Circle()
-                        .fill(Color.accentColor)
-                        .frame(width: 28, height: 28)
-
-                    Text(profileInitials)
-                        .font(.system(size: 11, weight: .semibold, design: .rounded))
-                        .foregroundColor(.white)
-                }
-
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(profileManager.activeProfile?.name ?? "popover.no_profile".localized)
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundColor(.primary)
-                        .lineLimit(1)
-
-                    HStack(spacing: 4) {
-                        if profileManager.profiles.count > 1 {
-                            Text(String(format: "popover.profiles_count".localized, profileManager.profiles.count))
-                                .font(.system(size: 9, weight: .medium))
-                                .foregroundColor(.secondary)
-                        } else {
-                            Text("popover.profile_count_singular".localized)
-                                .font(.system(size: 9, weight: .medium))
-                                .foregroundColor(.secondary)
-                        }
-
-                        Text("•")
-                            .font(.system(size: 9))
-                            .foregroundColor(.secondary.opacity(0.5))
-
-                        Text("common.switch".localized)
-                            .font(.system(size: 9, weight: .medium))
-                            .foregroundColor(.secondary)
-                    }
-                }
-
-                Spacer()
-
-                Image(systemName: "chevron.up.chevron.down")
-                    .font(.system(size: 9, weight: .medium))
-                    .foregroundColor(.secondary)
-            }
-            .padding(8)
-            .background(
-                RoundedRectangle(cornerRadius: 8)
-                    .fill(isHovered ? Color.primary.opacity(0.05) : Color.clear)
-            )
-        }
-        .menuStyle(.borderlessButton)
-        .buttonStyle(.plain)
-        .onHover { hovering in
-            withAnimation(.easeInOut(duration: 0.15)) {
-                isHovered = hovering
-            }
-        }
-    }
-
-    private var profileInitials: String {
-        guard let name = profileManager.activeProfile?.name else { return "?" }
-        let words = name.split(separator: " ")
-        if words.count >= 2 {
-            return String(words[0].prefix(1) + words[1].prefix(1)).uppercased()
-        } else if let first = words.first {
-            return String(first.prefix(2)).uppercased()
-        }
-        return "?"
-    }
-}
-
 // MARK: - Smart Header Component
 struct SmartHeader: View {
-    let usage: ClaudeUsage
     let status: ClaudeStatus
+    let provider: UsageProviderKind?
+    let summaryText: String?
     let isRefreshing: Bool
     let onRefresh: () -> Void
-    let onManageProfiles: () -> Void
     let onPreferences: () -> Void
-    var clickedProfileId: UUID? = nil
-
-    @StateObject private var profileManager = ProfileManager.shared
 
     private var statusColor: Color {
         switch status.indicator.color {
@@ -437,48 +219,57 @@ struct SmartHeader: View {
         }
     }
 
-    private var isMultiProfileMode: Bool {
-        profileManager.displayMode == .multi
-    }
-
-    private var clickedProfile: Profile? {
-        guard let id = clickedProfileId else { return nil }
-        return profileManager.profiles.first { $0.id == id }
-    }
-
-    private func profileInitials(for name: String) -> String {
-        let words = name.split(separator: " ")
-        if words.count >= 2 {
-            return String(words[0].prefix(1) + words[1].prefix(1)).uppercased()
-        } else if let first = words.first {
-            return String(first.prefix(2)).uppercased()
-        }
-        return "?"
-    }
-
     var body: some View {
         HStack {
             VStack(alignment: .leading, spacing: 2) {
-                ProfileSwitcherCompact(onManageProfiles: onManageProfiles)
+                Text("Usage Overview")
+                    .font(.system(size: 13, weight: .bold))
+                    .foregroundColor(.primary)
 
                 // Status
-                Button(action: {
-                    if let url = URL(string: "https://status.claude.com") {
-                        NSWorkspace.shared.open(url)
-                    }
-                }) {
+                if let summaryText {
                     HStack(spacing: 4) {
                         Circle()
-                            .fill(statusColor)
+                            .fill(Color.accentColor)
                             .frame(width: 6, height: 6)
 
-                        Text(status.description)
+                        Text(summaryText)
                             .font(.system(size: 9, weight: .medium))
                             .foregroundColor(.secondary)
                     }
+                } else if provider == .claude {
+                    Button(action: {
+                        if let url = URL(string: "https://status.claude.com") {
+                            NSWorkspace.shared.open(url)
+                        }
+                    }) {
+                        HStack(spacing: 4) {
+                            Circle()
+                                .fill(statusColor)
+                                .frame(width: 6, height: 6)
+
+                            Text(status.description)
+                                .font(.system(size: 9, weight: .medium))
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    .help("Click to open status.claude.com")
+                } else if let provider {
+                    HStack(spacing: 4) {
+                        Circle()
+                            .fill(provider.accentColor)
+                            .frame(width: 6, height: 6)
+
+                        Text(provider.displayName)
+                            .font(.system(size: 9, weight: .medium))
+                            .foregroundColor(.secondary)
+                    }
+                } else {
+                    Text("No profile selected")
+                        .font(.system(size: 9, weight: .medium))
+                        .foregroundColor(.secondary)
                 }
-                .buttonStyle(.plain)
-                .help("Click to open status.claude.com")
             }
 
             Spacer()
@@ -541,6 +332,126 @@ struct HeaderIconButton: View {
                 isHovered = hovering
             }
         }
+    }
+}
+
+// MARK: - Popover Usage Sections
+
+struct PopoverUsageSection: View {
+    let profile: Profile
+    let snapshot: ProviderUsageSnapshot
+    let isActive: Bool
+    let initials: String
+    let showInsights: Bool
+    let insightsUsage: ClaudeUsage?
+    let showFooter: Bool
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 8) {
+                ZStack {
+                    Circle()
+                        .fill(snapshot.provider.accentColor.opacity(0.14))
+                        .frame(width: 24, height: 24)
+
+                    if snapshot.provider == .claude {
+                        Text(initials)
+                            .font(.system(size: 9, weight: .bold, design: .rounded))
+                            .foregroundColor(snapshot.provider.accentColor)
+                    } else {
+                        Image(systemName: snapshot.provider.iconName)
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundColor(snapshot.provider.accentColor)
+                    }
+                }
+
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(profile.name)
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(.primary)
+                        .lineLimit(1)
+
+                    Text(snapshot.subtitle ?? snapshot.provider.displayName)
+                        .font(.system(size: 9, weight: .medium))
+                        .foregroundColor(.secondary)
+                        .lineLimit(1)
+                }
+
+                Spacer()
+
+                Text(snapshot.provider.displayName)
+                    .font(.system(size: 8, weight: .semibold))
+                    .foregroundColor(snapshot.provider.accentColor)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 3)
+                    .background(
+                        Capsule()
+                            .fill(snapshot.provider.accentColor.opacity(0.12))
+                    )
+
+                if isActive {
+                    Text("Active")
+                        .font(.system(size: 8, weight: .semibold))
+                        .foregroundColor(.accentColor)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 3)
+                        .background(
+                            Capsule()
+                                .fill(Color.accentColor.opacity(0.12))
+                        )
+                }
+            }
+            .padding(.horizontal, 14)
+            .padding(.top, 12)
+            .padding(.bottom, 4)
+
+            SmartUsageDashboard(snapshot: snapshot)
+
+            if showInsights, let insightsUsage {
+                PopoverDivider()
+                ContextualInsights(usage: insightsUsage)
+                    .transition(.opacity)
+            }
+
+            if showFooter {
+                PopoverInfoFooter()
+            }
+        }
+        .background(
+            RoundedRectangle(cornerRadius: 10)
+                .fill(Color.primary.opacity(0.03))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 10)
+                .stroke(Color.primary.opacity(0.06), lineWidth: 0.8)
+        )
+        .padding(.horizontal, 10)
+    }
+}
+
+struct PopoverEmptyStateView: View {
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("No usage profiles available")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundColor(.primary)
+
+            Text("Add or connect a Claude, Codex, or Copilot profile to show usage here.")
+                .font(.system(size: 10))
+                .foregroundColor(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+        .background(
+            RoundedRectangle(cornerRadius: 10)
+                .fill(Color.primary.opacity(0.03))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 10)
+                .stroke(Color.primary.opacity(0.06), lineWidth: 0.8)
+        )
+        .padding(.horizontal, 10)
     }
 }
 

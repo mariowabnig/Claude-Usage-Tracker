@@ -45,9 +45,10 @@ class CodexAuthService {
             return CodexAuthValidation(isValid: false, statusText: "Not configured", accountEmail: nil)
         }
 
-        let hasToken = state.accessToken != nil && !(state.accessToken?.isEmpty ?? true)
+        let resolvedAccessToken = state.resolvedAccessToken
+        let hasToken = resolvedAccessToken != nil && !(resolvedAccessToken?.isEmpty ?? true)
         let isExpired: Bool
-        if let expiry = state.expiresAt {
+        if let expiry = state.resolvedExpiresAt {
             isExpired = expiry < Date()
         } else {
             isExpired = false
@@ -57,13 +58,13 @@ class CodexAuthService {
             return CodexAuthValidation(
                 isValid: true,
                 statusText: "Connected",
-                accountEmail: state.email
+                accountEmail: state.resolvedAccountLabel
             )
         } else if hasToken && isExpired {
             return CodexAuthValidation(
                 isValid: false,
                 statusText: "Token expired",
-                accountEmail: state.email
+                accountEmail: state.resolvedAccountLabel
             )
         } else {
             return CodexAuthValidation(
@@ -83,12 +84,63 @@ struct CodexAuthState: Codable {
     let refreshToken: String?
     let expiresAt: Date?
     let email: String?
+    let accountId: String?
+    let tokens: NestedCodexTokens?
 
     enum CodingKeys: String, CodingKey {
         case accessToken = "access_token"
         case refreshToken = "refresh_token"
         case expiresAt = "expires_at"
         case email
+        case accountId = "account_id"
+        case tokens
+    }
+
+    var resolvedAccessToken: String? {
+        accessToken ?? tokens?.accessToken
+    }
+
+    var resolvedRefreshToken: String? {
+        refreshToken ?? tokens?.refreshToken
+    }
+
+    var resolvedExpiresAt: Date? {
+        expiresAt ?? tokens?.expiresAt
+    }
+
+    var resolvedAccountLabel: String? {
+        if let email, !email.isEmpty {
+            return email
+        }
+
+        if let nestedAccountId = tokens?.accountId, !nestedAccountId.isEmpty {
+            return Self.maskedIdentifier(nestedAccountId)
+        }
+
+        if let accountId, !accountId.isEmpty {
+            return Self.maskedIdentifier(accountId)
+        }
+
+        return nil
+    }
+
+    private static func maskedIdentifier(_ value: String) -> String {
+        guard value.count > 10 else { return value }
+        return "\(value.prefix(4))...\(value.suffix(4))"
+    }
+}
+
+struct NestedCodexTokens: Codable {
+    let accessToken: String?
+    let refreshToken: String?
+    let expiresAt: Date?
+    let accountId: String?
+
+    enum CodingKeys: String, CodingKey {
+        case accessToken = "access_token"
+        case refreshToken = "refresh_token"
+        case expiresAt = "expires_at"
+        case accountId = "account_id"
     }
 }
 

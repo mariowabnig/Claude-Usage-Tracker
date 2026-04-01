@@ -150,7 +150,7 @@ struct Profile: Codable, Identifiable, Equatable {
         case .codex:
             return codexCredentials != nil || CodexAuthService.shared.hasLocalAuth
         case .copilot:
-            return copilotCredentials?.githubToken != nil
+            return copilotCredentials?.githubToken != nil || CopilotAuthService.shared.hasCLIToken
         }
     }
 
@@ -167,7 +167,7 @@ struct Profile: Codable, Identifiable, Equatable {
         case .codex:
             return codexCredentials != nil || CodexAuthService.shared.hasLocalAuth
         case .copilot:
-            return copilotCredentials?.githubToken != nil
+            return copilotCredentials?.githubToken != nil || CopilotAuthService.shared.hasCLIToken
         }
     }
 }

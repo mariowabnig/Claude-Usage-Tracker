@@ -17,8 +17,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **UsageHistoryService Provider-Neutral Recording**: History snapshots now carry `UsageProviderKind`; recording logic is provider-aware
 - **Profile Provider Picker**: `CreateProfileSheet` gains a provider picker UI (Claude / Codex / Copilot); `ProfileManager.createProfile` accepts `providerKind`
 - **CodexAuthService + CopilotAuthService**: New auth services for Codex (`~/.codex/auth.json`) and Copilot (GitHub OAuth token)
+- **Real Provider Usage Bars**: Codex now renders session and weekly usage bars from the ChatGPT/Codex usage endpoint; Copilot renders premium interaction and chat quotas when GitHub exposes them
+- **Stacked Popover Overview**: The popover can show all visible profiles at once in a shared overview, without an in-popover profile selector and without internal scrolling in the multi-provider layout
+- **Menu Bar Selection**: Multi-profile mode still controls what appears in the menu bar, while the popover can summarize all selected profiles in a single larger window
+- **Safer Claude Code Switching**: Automatic application of Claude Code CLI credentials on profile switch is now disabled by default to avoid replacing the system login unexpectedly
+- **Codex Identifier Masking**: Codex account identifiers from `~/.codex/auth.json` are now masked before display in the UI
 - **AppError Provider Codes**: `AppError` extended with provider-specific error cases for Codex and Copilot auth/fetch failures
 - **ProviderModelsTests**: 58 new unit tests covering provider model encoding, snapshot construction, and credentials; total suite now 154 passing
+
+### Localization
+
+- Updated all shipped localization files for the new multi-profile segmented control labels and app-logo-mode copy
+- Fixed raw translation key fallback in localized builds for the new popup and multi-profile settings UI
 
 ## [3.0.3] - 2026-03-10
 
