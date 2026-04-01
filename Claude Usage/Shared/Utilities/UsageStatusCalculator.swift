@@ -14,14 +14,19 @@ final class UsageStatusCalculator {
         showRemaining: Bool,
         elapsedFraction: Double? = nil
     ) -> UsageStatusLevel {
-        // Pace-aware logic: project end-of-period usage when enough time has elapsed
+        // Pace-aware logic: project end-of-period usage when enough time has elapsed.
+        // For longer billing cycles like Copilot monthly quotas, we still want
+        // obviously-ahead usage to color early, even before the usual warm-up.
         let u = usedPercentage / 100.0
-        if let t = elapsedFraction, t >= 0.15, t < 1.0, u > 0 {
+        if let t = elapsedFraction, t > 0, t < 1.0, u > 0 {
             let projected = u / t
-            switch projected {
-            case ..<0.75:     return .safe
-            case 0.75..<0.95: return .moderate
-            default:          return .critical
+
+            if t >= 0.15 || projected >= 1.5 {
+                switch projected {
+                case ..<0.75:     return .safe
+                case 0.75..<0.95: return .moderate
+                default:          return .critical
+                }
             }
         }
 
