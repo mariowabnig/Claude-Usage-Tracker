@@ -22,7 +22,9 @@ class CopilotUsageProviderFetcher: UsageProviderFetcher {
 
     func fetchUsage(for profile: Profile) async throws -> ProviderUsageSnapshot {
         let savedToken = profile.copilotCredentials?.githubToken?.trimmingCharacters(in: .whitespacesAndNewlines)
-        let cliToken = CopilotAuthService.shared.readCLIToken()
+        let cliToken = savedToken?.isEmpty == false
+            ? nil
+            : await CopilotAuthService.shared.refreshCLITokenIfNeeded()
         let token = (savedToken?.isEmpty == false ? savedToken : nil) ?? cliToken
 
         guard let token else {
@@ -43,6 +45,8 @@ class CopilotUsageProviderFetcher: UsageProviderFetcher {
         do {
             let response = try await fetchUsageResponse(token: token)
             let connectionSource = savedToken?.isEmpty == false ? "Saved GitHub token" : "GitHub CLI auth"
+            let resetDate = parseQuotaResetDate(response.quotaResetDate)
+            let cycleDuration = quotaCycleDuration(for: resetDate)
             var rows: [ProviderMetricRow] = []
             var cards: [ProviderSupplementaryCard] = [
                 ProviderSupplementaryCard(
@@ -58,11 +62,12 @@ class CopilotUsageProviderFetcher: UsageProviderFetcher {
                 rows.append(ProviderMetricRow(
                     id: "copilot-premium",
                     title: "Premium Interactions",
+                    tag: "Monthly",
                     subtitle: quotaSubtitle(for: premium),
                     usedPercentage: max(0, 100 - premium.percentRemaining),
-                    resetTime: parseQuotaResetDate(response.quotaResetDate),
-                    periodDuration: nil,
-                    supportsPaceMarkers: false,
+                    resetTime: resetDate,
+                    periodDuration: cycleDuration,
+                    supportsPaceMarkers: resetDate != nil && cycleDuration != nil,
                     accentStyle: .primary
                 ))
             }
@@ -77,11 +82,12 @@ class CopilotUsageProviderFetcher: UsageProviderFetcher {
                     rows.append(ProviderMetricRow(
                         id: "copilot-chat",
                         title: "Chat",
+                        tag: "Monthly",
                         subtitle: quotaSubtitle(for: chat),
                         usedPercentage: max(0, 100 - chat.percentRemaining),
-                        resetTime: parseQuotaResetDate(response.quotaResetDate),
-                        periodDuration: nil,
-                        supportsPaceMarkers: false,
+                        resetTime: resetDate,
+                        periodDuration: cycleDuration,
+                        supportsPaceMarkers: resetDate != nil && cycleDuration != nil,
                         accentStyle: .secondary
                     ))
                 }
@@ -94,7 +100,7 @@ class CopilotUsageProviderFetcher: UsageProviderFetcher {
                 ))
             }
 
-            if let resetDate = parseQuotaResetDate(response.quotaResetDate) {
+            if let resetDate {
                 let formatter = DateFormatter()
                 formatter.dateStyle = .medium
                 formatter.timeStyle = .none
@@ -163,6 +169,15 @@ class CopilotUsageProviderFetcher: UsageProviderFetcher {
         formatter.timeZone = TimeZone.current
         formatter.dateFormat = "yyyy-MM-dd"
         return formatter.date(from: value)
+    }
+
+    private func quotaCycleDuration(for resetDate: Date?) -> TimeInterval? {
+        guard let resetDate else { return nil }
+        let calendar = Calendar.current
+        guard let previousReset = calendar.date(byAdding: .month, value: -1, to: resetDate) else {
+            return nil
+        }
+        return resetDate.timeIntervalSince(previousReset)
     }
 
     private func quotaSubtitle(for quota: CopilotQuotaSnapshot) -> String? {

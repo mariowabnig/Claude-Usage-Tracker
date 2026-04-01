@@ -621,8 +621,11 @@ class MenuBarManager: NSObject, ObservableObject {
         if profileManager.displayMode == .multi {
             // Update multi-profile icons using profiles from profileManager
             let config = profileManager.multiProfileConfig
+            let selectedProfiles = profileManager.getSelectedProfiles()
+            let snapshots = multiProfileSnapshots(for: selectedProfiles)
             statusBarUIManager?.updateMultiProfileButtons(
-                profiles: profileManager.profiles,
+                profiles: selectedProfiles,
+                snapshots: snapshots,
                 config: config
             )
         } else {
@@ -727,6 +730,12 @@ class MenuBarManager: NSObject, ObservableObject {
             guard let self = self else { return }
 
             Task { @MainActor in
+                // In multi-profile mode, never rebuild the single-profile status items.
+                if self.profileManager.displayMode == .multi {
+                    self.setupMultiProfileMode()
+                    return
+                }
+
                 // Check if active profile has usage credentials
                 guard let profile = self.profileManager.activeProfile, profile.hasUsageCredentials else {
                     LoggingService.shared.logInfo("Credentials changed but no usage credentials - showing default logo")
@@ -850,7 +859,12 @@ class MenuBarManager: NSObject, ObservableObject {
         // Defer icon update to next run loop iteration to let NSStatusBar finalize layout
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
-            self.statusBarUIManager?.updateMultiProfileButtons(profiles: self.profileManager.profiles, config: config)
+            let snapshots = self.multiProfileSnapshots(for: selectedProfiles)
+            self.statusBarUIManager?.updateMultiProfileButtons(
+                profiles: selectedProfiles,
+                snapshots: snapshots,
+                config: config
+            )
         }
 
         LoggingService.shared.log("MenuBarManager: Multi-profile mode enabled with \(selectedProfiles.count) profiles, style=\(config.iconStyle.rawValue)")
@@ -925,6 +939,12 @@ class MenuBarManager: NSObject, ObservableObject {
 
         LoggingService.shared.log("MenuBarManager: Refreshing \(profiles.count) profiles for popover display")
         refreshProfiles(profiles, updateStatusBarIconsForCurrentMode: true)
+    }
+
+    private func multiProfileSnapshots(for profiles: [Profile]) -> [UUID: ProviderUsageSnapshot] {
+        profiles.reduce(into: [UUID: ProviderUsageSnapshot]()) { partialResult, profile in
+            partialResult[profile.id] = snapshotForPopover(profile: profile)
+        }
     }
 
     private func refreshProfiles(_ profiles: [Profile], updateStatusBarIconsForCurrentMode: Bool) {
@@ -1047,8 +1067,11 @@ class MenuBarManager: NSObject, ObservableObject {
                 if updateStatusBarIconsForCurrentMode {
                     if self.profileManager.displayMode == .multi {
                         let config = self.profileManager.multiProfileConfig
+                        let selectedProfiles = self.profileManager.getSelectedProfiles()
+                        let snapshots = self.multiProfileSnapshots(for: selectedProfiles)
                         self.statusBarUIManager?.updateMultiProfileButtons(
-                            profiles: self.profileManager.profiles,
+                            profiles: selectedProfiles,
+                            snapshots: snapshots,
                             config: config
                         )
                     } else {

@@ -13,10 +13,21 @@ import Foundation
 class CopilotAuthService {
     static let shared = CopilotAuthService()
 
-    private init() {}
+    private let tokenCacheKey = "copilot.cliToken.cache"
+    private var cachedCLIToken: String?
+    private var tokenRefreshTask: Task<String?, Never>?
+
+    private init() {
+        cachedCLIToken = UserDefaults.standard.string(forKey: tokenCacheKey)?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+
+        Task {
+            _ = await refreshCLITokenIfNeeded()
+        }
+    }
 
     var hasCLIToken: Bool {
-        readCLIToken() != nil
+        cachedCLIToken?.isEmpty == false
     }
 
     // MARK: - GitHub OAuth Device Flow
@@ -93,10 +104,42 @@ class CopilotAuthService {
         return false
     }
 
-    /// Reads the currently authenticated GitHub CLI token if available.
-    /// This provides a low-friction fallback for Copilot profiles when a token
-    /// has not been manually saved in provider credentials yet.
+    /// Reads the cached GitHub CLI token if available.
+    /// This is intentionally non-blocking so SwiftUI/UI code can call it safely.
     func readCLIToken() -> String? {
+        cachedCLIToken
+    }
+
+    /// Refreshes the cached GitHub CLI token off the main thread.
+    func refreshCLITokenIfNeeded(force: Bool = false) async -> String? {
+        if !force, let cachedCLIToken, !cachedCLIToken.isEmpty {
+            return cachedCLIToken
+        }
+
+        if let tokenRefreshTask {
+            return await tokenRefreshTask.value
+        }
+
+        let task = Task.detached(priority: .utility) {
+            Self.loadCLITokenFromCLI()
+        }
+        tokenRefreshTask = task
+
+        let token = await task.value?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        tokenRefreshTask = nil
+        cachedCLIToken = token?.isEmpty == false ? token : nil
+
+        if let cachedCLIToken {
+            UserDefaults.standard.set(cachedCLIToken, forKey: tokenCacheKey)
+        } else {
+            UserDefaults.standard.removeObject(forKey: tokenCacheKey)
+        }
+
+        return cachedCLIToken
+    }
+
+    nonisolated private static func loadCLITokenFromCLI() -> String? {
         let process = Process()
         let stdout = Pipe()
         let stderr = Pipe()
