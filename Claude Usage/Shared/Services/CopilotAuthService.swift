@@ -140,41 +140,21 @@ class CopilotAuthService {
     }
 
     nonisolated private static func loadCLITokenFromCLI() -> String? {
-        guard let ghExecutablePath = resolveGitHubCLIPath() else {
-            LoggingService.shared.logError("CopilotAuthService: GitHub CLI not found in standard locations")
-            return nil
+        if let ghExecutablePath = resolveGitHubCLIPath(),
+           let token = runGitHubCLI(executablePath: ghExecutablePath) {
+            return token
         }
 
-        let process = Process()
-        let stdout = Pipe()
-        let stderr = Pipe()
-
-        process.executableURL = URL(fileURLWithPath: ghExecutablePath)
-        process.arguments = ["auth", "token"]
-        process.standardOutput = stdout
-        process.standardError = stderr
-
-        do {
-            try process.run()
-            process.waitUntilExit()
-
-            guard process.terminationStatus == 0 else {
-                let errorData = stderr.fileHandleForReading.readDataToEndOfFile()
-                let errorOutput = String(data: errorData, encoding: .utf8)?
-                    .trimmingCharacters(in: .whitespacesAndNewlines) ?? "unknown error"
-                LoggingService.shared.logError("CopilotAuthService: GitHub CLI token command failed: \(errorOutput)")
-                return nil
-            }
-
-            let data = stdout.fileHandleForReading.readDataToEndOfFile()
-            let token = String(data: data, encoding: .utf8)?
-                .trimmingCharacters(in: .whitespacesAndNewlines)
-
-            return token?.isEmpty == false ? token : nil
-        } catch {
-            LoggingService.shared.logError("CopilotAuthService: Failed to read GitHub CLI token: \(error.localizedDescription)")
-            return nil
+        if let token = runGitHubCLIViaShell() {
+            return token
         }
+
+        if let token = loadCLITokenFromHostsFile() {
+            return token
+        }
+
+        logLookupIssue("CopilotAuthService: Unable to resolve GitHub CLI auth token")
+        return nil
     }
 
     nonisolated private static func resolveGitHubCLIPath() -> String? {
@@ -197,6 +177,111 @@ class CopilotAuthService {
         }
 
         return nil
+    }
+
+    nonisolated private static func runGitHubCLI(executablePath: String) -> String? {
+        let process = Process()
+        let stdout = Pipe()
+        let stderr = Pipe()
+
+        process.executableURL = URL(fileURLWithPath: executablePath)
+        process.arguments = ["auth", "token", "--hostname", "github.com"]
+        process.standardOutput = stdout
+        process.standardError = stderr
+        process.environment = commandEnvironment()
+
+        do {
+            try process.run()
+            process.waitUntilExit()
+
+            guard process.terminationStatus == 0 else {
+                let errorData = stderr.fileHandleForReading.readDataToEndOfFile()
+                let errorOutput = String(data: errorData, encoding: .utf8)?
+                    .trimmingCharacters(in: .whitespacesAndNewlines) ?? "unknown error"
+                logLookupIssue("CopilotAuthService: GitHub CLI token command failed: \(errorOutput)")
+                return nil
+            }
+
+            let data = stdout.fileHandleForReading.readDataToEndOfFile()
+            let token = String(data: data, encoding: .utf8)?
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+
+            return token?.isEmpty == false ? token : nil
+        } catch {
+            logLookupIssue("CopilotAuthService: Failed to read GitHub CLI token: \(error.localizedDescription)")
+            return nil
+        }
+    }
+
+    nonisolated private static func runGitHubCLIViaShell() -> String? {
+        let process = Process()
+        let stdout = Pipe()
+
+        process.executableURL = URL(fileURLWithPath: "/bin/zsh")
+        process.arguments = [
+            "-lc",
+            "export PATH='\(standardPATH())'; export HOME='\(NSHomeDirectory())'; gh auth token --hostname github.com"
+        ]
+        process.standardOutput = stdout
+        process.standardError = Pipe()
+        process.environment = commandEnvironment()
+
+        do {
+            try process.run()
+            process.waitUntilExit()
+
+            guard process.terminationStatus == 0 else {
+                return nil
+            }
+
+            let data = stdout.fileHandleForReading.readDataToEndOfFile()
+            let token = String(data: data, encoding: .utf8)?
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+
+            return token?.isEmpty == false ? token : nil
+        } catch {
+            return nil
+        }
+    }
+
+    nonisolated private static func loadCLITokenFromHostsFile() -> String? {
+        let hostsURL = URL(fileURLWithPath: NSHomeDirectory())
+            .appendingPathComponent(".config/gh/hosts.yml")
+
+        guard
+            let contents = try? String(contentsOf: hostsURL, encoding: .utf8),
+            let line = contents
+                .split(whereSeparator: \.isNewline)
+                .first(where: { $0.trimmingCharacters(in: .whitespaces).hasPrefix("oauth_token:") })
+        else {
+            return nil
+        }
+
+        let token = line
+            .split(separator: ":", maxSplits: 1)
+            .dropFirst()
+            .first?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+
+        return token?.isEmpty == false ? token : nil
+    }
+
+    nonisolated private static func commandEnvironment() -> [String: String] {
+        var environment = ProcessInfo.processInfo.environment
+        environment["HOME"] = NSHomeDirectory()
+        environment["PATH"] = standardPATH()
+        environment["LANG"] = environment["LANG"] ?? "en_US.UTF-8"
+        return environment
+    }
+
+    nonisolated private static func standardPATH() -> String {
+        "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+    }
+
+    nonisolated private static func logLookupIssue(_ message: String) {
+        Task { @MainActor in
+            LoggingService.shared.logError(message)
+        }
     }
 }
 

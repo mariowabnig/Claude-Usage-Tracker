@@ -12,6 +12,7 @@ struct ManageProfilesView: View {
     @State private var showingCreateProfile = false
     @State private var newProfileName = ""
     @State private var selectedProvider: UsageProviderKind = .claude
+    @State private var pendingDeleteProfile: Profile?
     @State private var errorMessage: String?
 
     var body: some View {
@@ -27,7 +28,9 @@ struct ManageProfilesView: View {
                 SettingsContentCard {
                     VStack(alignment: .leading, spacing: DesignTokens.Spacing.medium) {
                         ForEach(profileManager.profiles) { profile in
-                            ProfileRow(profile: profile)
+                            ProfileRow(profile: profile) {
+                                pendingDeleteProfile = profile
+                            }
                                 .padding(.vertical, DesignTokens.Spacing.extraSmall)
 
                             if profile.id != profileManager.profiles.last?.id {
@@ -293,6 +296,35 @@ struct ManageProfilesView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .clipped()
+        .alert("profiles.delete_title".localized, isPresented: Binding(
+            get: { pendingDeleteProfile != nil },
+            set: { isPresented in
+                if !isPresented {
+                    pendingDeleteProfile = nil
+                }
+            }
+        )) {
+            Button("common.cancel".localized, role: .cancel) {
+                pendingDeleteProfile = nil
+            }
+            Button("common.delete".localized, role: .destructive) {
+                guard let pendingDeleteProfile else { return }
+
+                do {
+                    try profileManager.deleteProfile(pendingDeleteProfile.id)
+                } catch {
+                    errorMessage = error.localizedDescription
+                }
+
+                self.pendingDeleteProfile = nil
+            }
+        } message: {
+            Text(
+                pendingDeleteProfile.map {
+                    String(format: "profiles.delete_confirm".localized, $0.name)
+                } ?? ""
+            )
+        }
         .sheet(isPresented: $showingCreateProfile) {
             CreateProfileSheet(
                 profileName: $newProfileName,
@@ -367,10 +399,10 @@ private struct MultiProfileStylePicker: View {
 
 struct ProfileRow: View {
     let profile: Profile
+    let onDeleteRequest: () -> Void
     @StateObject private var profileManager = ProfileManager.shared
     @State private var isEditing = false
     @State private var editedName: String = ""
-    @State private var showingDeleteConfirmation = false
 
     var body: some View {
         HStack(spacing: 12) {
@@ -442,7 +474,7 @@ struct ProfileRow: View {
                     // Delete Button (if not the last profile)
                     if profileManager.profiles.count > 1 {
                         Button(action: {
-                            showingDeleteConfirmation = true
+                            onDeleteRequest()
                         }) {
                             Image(systemName: "trash")
                                 .font(.system(size: 12))
@@ -474,14 +506,6 @@ struct ProfileRow: View {
                 }
             }
         }
-        .alert("profiles.delete_title".localized, isPresented: $showingDeleteConfirmation) {
-            Button("common.cancel".localized, role: .cancel) {}
-            Button("common.delete".localized, role: .destructive) {
-                deleteProfile()
-            }
-        } message: {
-            Text(String(format: "profiles.delete_confirm".localized, profile.name))
-        }
     }
 
     private var profileInfo: String {
@@ -503,14 +527,6 @@ struct ProfileRow: View {
             profileManager.updateProfile(updated)
         }
         isEditing = false
-    }
-
-    private func deleteProfile() {
-        do {
-            try profileManager.deleteProfile(profile.id)
-        } catch {
-            // Error handled by ProfileManager
-        }
     }
 }
 

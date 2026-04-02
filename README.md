@@ -273,6 +273,7 @@ Claude Usage Tracker supports unlimited profiles, so you can manage separate Cla
 - **Custom Names**: Rename profiles to whatever you prefer
 - **Quick Switching**: Switch profiles instantly from settings and profile management views
 - **Provider Picker**: Choose Claude, Codex, or GitHub Copilot when creating a profile
+- **Reliable Profile Deletion**: Delete provider profiles directly from Manage Profiles with a confirmation dialog
 - **Profile Badges**: Visual indicators show provider type and connection state
 
 #### Claude Code CLI Integration
@@ -323,6 +324,7 @@ Access profile switcher in multiple places:
    - Sign in once with the GitHub CLI by running `gh auth login` in Terminal
    - The app reads your existing `gh` login automatically; no separate in-app GitHub sign-in is required
    - If you already use `gh` on the Mac, creating a GitHub Copilot profile is enough
+   - Finder-launched builds also fall back to a shell-backed lookup so macOS GUI launches can still reuse keychain-backed GitHub CLI auth
 
 
 ---
