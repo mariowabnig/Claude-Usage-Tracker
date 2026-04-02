@@ -520,7 +520,8 @@ struct SmartUsageDashboard: View {
                     showTimeMarker: row.supportsPaceMarkers ? showTimeMarker : false,
                     showPaceMarker: row.supportsPaceMarkers ? showPaceMarker : false,
                     usePaceColoring: row.supportsPaceMarkers ? usePaceColoring : false,
-                    timeDisplay: timeDisplay
+                    timeDisplay: timeDisplay,
+                    showPeakStripes: snapshot.provider == .claude
                 )
             }
 
@@ -599,6 +600,7 @@ struct UsageRow: View {
     var showPaceMarker: Bool = true
     var usePaceColoring: Bool = true
     var timeDisplay: PopoverTimeDisplay = .resetTime
+    var showPeakStripes: Bool = false
 
     private var displayPercentage: Double {
         UsageStatusCalculator.getDisplayPercentage(
@@ -740,7 +742,7 @@ struct UsageRow: View {
                         RoundedRectangle(cornerRadius: 2.5)
                             .fill(statusColor)
 
-                        if PeakHoursHelper.isPeakHours {
+                        if showPeakStripes && PeakHoursHelper.isPeakHours {
                             PeakStripes()
                                 .clipShape(RoundedRectangle(cornerRadius: 2.5))
                         }

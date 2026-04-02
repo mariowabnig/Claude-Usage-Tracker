@@ -24,7 +24,8 @@ final class MenuBarIconRenderer {
         singleColorHex: String,
         showIconName: Bool,
         showNextSessionTime: Bool,
-        profilePrefix: String? = nil
+        profilePrefix: String? = nil,
+        showPeakEffects: Bool = true
     ) -> NSImage {
         // Get the metric value and percentage
         let metricData = getMetricData(
@@ -90,7 +91,8 @@ final class MenuBarIconRenderer {
                 timeMarkerFraction: timeMarkerFraction,
                 paceStatus: paceStatus,
                 showPaceMarker: showPaceMarker,
-                profilePrefix: profilePrefix
+                profilePrefix: profilePrefix,
+                showPeakEffects: showPeakEffects
             )
         case .progressBar:
             return createProgressBarStyle(
@@ -105,7 +107,8 @@ final class MenuBarIconRenderer {
                 timeMarkerFraction: timeMarkerFraction,
                 paceStatus: paceStatus,
                 showPaceMarker: showPaceMarker,
-                profilePrefix: profilePrefix
+                profilePrefix: profilePrefix,
+                showPeakEffects: showPeakEffects
             )
         case .percentageOnly:
             return createPercentageOnlyStyle(
@@ -278,7 +281,8 @@ final class MenuBarIconRenderer {
         timeMarkerFraction: CGFloat? = nil,
         paceStatus: PaceStatus? = nil,
         showPaceMarker: Bool = false,
-        profilePrefix: String? = nil
+        profilePrefix: String? = nil,
+        showPeakEffects: Bool = true
     ) -> NSImage {
         let percentage = CGFloat(metricData.percentage) / 100.0
 
@@ -314,7 +318,7 @@ final class MenuBarIconRenderer {
             yRadius: 2.5
         )
         // Fill battery background with light grey during peak hours
-        if PeakHoursHelper.isPeakHours {
+        if showPeakEffects && PeakHoursHelper.isPeakHours {
             let bgColor = isDarkMode ? NSColor.white.withAlphaComponent(0.35) : NSColor.gray.withAlphaComponent(0.35)
             bgColor.setFill()
             containerPath.fill()
@@ -341,7 +345,7 @@ final class MenuBarIconRenderer {
             fillPath.fill()
 
             // Peak hours diagonal stripes
-            if PeakHoursHelper.isPeakHours {
+            if showPeakEffects && PeakHoursHelper.isPeakHours {
                 NSGraphicsContext.saveGraphicsState()
                 fillPath.addClip()
                 let stripeColor = NSColor.peakAmber.withAlphaComponent(0.55)
@@ -422,7 +426,8 @@ final class MenuBarIconRenderer {
         timeMarkerFraction: CGFloat? = nil,
         paceStatus: PaceStatus? = nil,
         showPaceMarker: Bool = false,
-        profilePrefix: String? = nil
+        profilePrefix: String? = nil,
+        showPeakEffects: Bool = true
     ) -> NSImage {
         // For progress bar: show "S" or "W" before the bar, with optional profile prefix
         let labelText: String = {
@@ -445,7 +450,7 @@ final class MenuBarIconRenderer {
         let foregroundColor = menuBarForegroundColor(isDarkMode: isDarkMode)
         let textColor: NSColor = foregroundColor
         let fillColor: NSColor = getColorForMode(colorMode, statusLevel: metricData.statusLevel, singleColorHex: singleColorHex, isDarkMode: isDarkMode)
-        let backgroundColor: NSColor = PeakHoursHelper.isPeakHours
+        let backgroundColor: NSColor = showPeakEffects && PeakHoursHelper.isPeakHours
             ? (isDarkMode ? NSColor.white.withAlphaComponent(0.35) : NSColor.gray.withAlphaComponent(0.35))
             : foregroundColor.withAlphaComponent(0.2)
 
@@ -481,7 +486,7 @@ final class MenuBarIconRenderer {
         bgPath.fill()
 
         // Stripe the background track during peak hours
-        if PeakHoursHelper.isPeakHours {
+        if showPeakEffects && PeakHoursHelper.isPeakHours {
             NSGraphicsContext.saveGraphicsState()
             bgPath.addClip()
             let bgStripeColor = NSColor.peakAmber.withAlphaComponent(0.25)
@@ -516,7 +521,7 @@ final class MenuBarIconRenderer {
             fillPath.fill()
 
             // Peak hours diagonal stripes
-            if PeakHoursHelper.isPeakHours {
+            if showPeakEffects && PeakHoursHelper.isPeakHours {
                 NSGraphicsContext.saveGraphicsState()
                 fillPath.addClip()
                 let stripeColor = NSColor.peakAmber.withAlphaComponent(0.55)

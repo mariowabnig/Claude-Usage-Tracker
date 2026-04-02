@@ -189,6 +189,26 @@ This file helps track what we've changed so upstream merges stay manageable.
 
 ---
 
+## 14. Peak Visuals Scoped to Claude Only
+
+**Date:** 2026-04-02
+**Purpose:** Peak-hour visuals represent Anthropic pricing behavior and should not affect Copilot or Codex displays.
+
+### Changes
+
+**Modified:** `MenuBar/PopoverContentView.swift`
+- `UsageRow` now supports provider-gated peak stripes via `showPeakStripes`
+- `SmartUsageDashboard` enables peak stripes only when `snapshot.provider == .claude`
+
+**Modified:** `MenuBar/MenuBarIconRenderer.swift`
+- Added `showPeakEffects` gating to peak-specific rendering in battery/progress styles
+- Amber peak overlays/backgrounds now render only when `showPeakEffects` is enabled
+
+**Modified:** `MenuBar/StatusBarUIManager.swift`
+- Multi-profile renderer now passes `showPeakEffects: profile.providerKind == .claude`
+
+---
+
 ## Files Modified (summary)
 
 | File | Change |
