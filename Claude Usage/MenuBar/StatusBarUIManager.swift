@@ -256,7 +256,8 @@ final class StatusBarUIManager {
                     colorMode: profile.iconConfig.colorMode,
                     singleColorHex: profile.iconConfig.singleColorHex,
                     showIconName: profile.iconConfig.showIconNames,
-                    showNextSessionTime: metricConfig.showNextSessionTime
+                    showNextSessionTime: metricConfig.showNextSessionTime,
+                    profilePrefix: profile.providerKind.menuBarPrefix
                 )
 
                 image.isTemplate = profile.iconConfig.colorMode == .monochrome && !profile.iconConfig.showPaceMarker

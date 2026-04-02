@@ -5,6 +5,15 @@ All notable changes to Claude Usage Tracker will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.1.2] - 2026-04-02
+
+### UI
+
+- **Per-Profile Metrics Cards**: Replaced the single-profile "Menu Bar Metrics" section in Appearance Settings with one card per profile, each showing only the metrics relevant to that provider (Session/Week for Claude/Codex, Monthly for Copilot)
+- **Profile Prefix in Menu Bar**: Multi-profile mode now prefixes each icon label with a short provider tag (`CL`, `CX`, `GH`) so multiple icons in the menu bar are immediately identifiable by provider
+- **`menuBarPrefix` on `UsageProviderKind`**: New computed property providing the two-letter provider abbreviation; threaded through `createImage` and all five style renderers (`compact`, `progressBar`, `progressBarAndNumber`, `percentageOnly`, `icon`)
+- **Visibility Hint on Profile Cards**: Profile metric cards now show an inline status hint when the profile is not currently set to appear in the menu bar
+
 ## [3.1.1] - 2026-04-02
 
 ### UI

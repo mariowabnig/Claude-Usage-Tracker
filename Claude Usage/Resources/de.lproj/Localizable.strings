@@ -573,6 +573,8 @@
 "appearance.metrics_subtitle" = "Metriken auswählen, die in der Menüleiste angezeigt werden";
 "appearance.all_metrics_off_title" = "App-Logo-Modus";
 "appearance.all_metrics_off_description" = "Alle Metriken sind ausgeschaltet. Stattdessen wird das App-Logo in der Menüleiste angezeigt. Klicken Sie darauf, um Profile und Einstellungen zu öffnen.";
+"appearance.not_active_profile" = "Nicht das aktive Profil";
+"appearance.not_selected_for_display" = "Nicht für Anzeige ausgewählt";
 
 /* ==================== */
 /* MARK: - Metric Card */

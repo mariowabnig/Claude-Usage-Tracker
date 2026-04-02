@@ -11,6 +11,7 @@ import SwiftUI
 struct AppearanceSettingsView: View {
     @ObservedObject private var profileManager = ProfileManager.shared
     @State private var configuration: MenuBarIconConfiguration = .default
+    @State private var profileConfigs: [UUID: MenuBarIconConfiguration] = [:]
     @State private var saveDebounceTimer: Timer?
 
     var body: some View {
@@ -102,76 +103,23 @@ struct AppearanceSettingsView: View {
                     }
                 }
 
-                // Metrics Configuration
+                // Per-Profile Metrics Configuration
                 SettingsSectionCard(
                     title: "appearance.menu_bar_metrics".localized,
                     subtitle: "appearance.metrics_subtitle".localized
                 ) {
-                    VStack(alignment: .leading, spacing: DesignTokens.Spacing.small) {
-                        // Info message when all metrics are disabled
-                        if configuration.metrics.filter({ $0.isEnabled }).isEmpty {
-                            HStack(alignment: .top, spacing: 8) {
-                                Image(systemName: "info.circle.fill")
-                                    .font(.system(size: 12))
-                                    .foregroundColor(.blue)
-
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text("appearance.all_metrics_off_title".localized)
-                                        .font(.system(size: 11, weight: .semibold))
-                                        .foregroundColor(.primary)
-
-                                    Text("appearance.all_metrics_off_description".localized)
-                                        .font(.system(size: 10))
-                                        .foregroundColor(.secondary)
-                                        .fixedSize(horizontal: false, vertical: true)
-                                }
-                            }
-                            .padding(DesignTokens.Spacing.small)
-                            .background(
-                                RoundedRectangle(cornerRadius: 8)
-                                    .fill(Color.blue.opacity(0.1))
-                            )
-                        }
-
-                        // Session Usage
-                        if let sessionIndex = configuration.metrics.firstIndex(where: { $0.metricType == .session }) {
-                            MetricIconCard(
-                                metricType: .session,
+                    VStack(alignment: .leading, spacing: DesignTokens.Spacing.medium) {
+                        ForEach(profileManager.profiles) { profile in
+                            ProfileMetricsCard(
+                                profile: profile,
                                 config: Binding(
-                                    get: { configuration.metrics[sessionIndex] },
+                                    get: { profileConfigs[profile.id] ?? profile.iconConfig },
                                     set: { newValue in
-                                        configuration.metrics[sessionIndex] = newValue
+                                        profileConfigs[profile.id] = newValue
+                                        saveConfiguration(for: profile.id)
                                     }
                                 ),
-                                onConfigChanged: { saveConfiguration() }
-                            )
-                        }
-
-                        // Week Usage
-                        if let weekIndex = configuration.metrics.firstIndex(where: { $0.metricType == .week }) {
-                            MetricIconCard(
-                                metricType: .week,
-                                config: Binding(
-                                    get: { configuration.metrics[weekIndex] },
-                                    set: { newValue in
-                                        configuration.metrics[weekIndex] = newValue
-                                    }
-                                ),
-                                onConfigChanged: { saveConfiguration() }
-                            )
-                        }
-
-                        // API Credits
-                        if let apiIndex = configuration.metrics.firstIndex(where: { $0.metricType == .api }) {
-                            MetricIconCard(
-                                metricType: .api,
-                                config: Binding(
-                                    get: { configuration.metrics[apiIndex] },
-                                    set: { newValue in
-                                        configuration.metrics[apiIndex] = newValue
-                                    }
-                                ),
-                                onConfigChanged: { saveConfiguration() }
+                                profileManager: profileManager
                             )
                         }
                     }
@@ -182,38 +130,165 @@ struct AppearanceSettingsView: View {
             .padding()
         }
         .onAppear {
-            // Load configuration from active profile
+            loadAllProfileConfigs()
             if let activeProfile = profileManager.activeProfile {
                 configuration = activeProfile.iconConfig
             }
         }
         .onChange(of: profileManager.activeProfile?.id) { _, newProfileId in
-            // Reload configuration when profile changes
             if let activeProfile = profileManager.activeProfile {
                 configuration = activeProfile.iconConfig
             }
+        }
+        .onChange(of: profileManager.profiles.count) { _, _ in
+            loadAllProfileConfigs()
         }
     }
 
     // MARK: - Helper Methods
 
-    private func saveConfiguration() {
-        // Allow all metrics to be disabled - will show default app logo
-        // No minimum enforcement needed
+    private func loadAllProfileConfigs() {
+        for profile in profileManager.profiles {
+            profileConfigs[profile.id] = profile.iconConfig
+        }
+    }
 
-        // Save to active profile
+    private func saveConfiguration() {
         guard let profileId = profileManager.activeProfile?.id else {
             LoggingService.shared.logError("Cannot save appearance: no active profile")
             return
         }
 
         profileManager.updateIconConfig(configuration, for: profileId)
-
-        // Notify that config changed (for MenuBarManager to update)
         NotificationCenter.default.post(name: .menuBarIconConfigChanged, object: nil)
 
         let enabledCount = configuration.metrics.filter { $0.isEnabled }.count
         LoggingService.shared.log("Saved icon configuration to profile (enabled: \(enabledCount))")
+    }
+
+    private func saveConfiguration(for profileId: UUID) {
+        guard let config = profileConfigs[profileId] else { return }
+
+        profileManager.updateIconConfig(config, for: profileId)
+        NotificationCenter.default.post(name: .menuBarIconConfigChanged, object: nil)
+
+        // Keep the active profile's global config in sync
+        if profileId == profileManager.activeProfile?.id {
+            configuration = config
+        }
+
+        let enabledCount = config.metrics.filter { $0.isEnabled }.count
+        LoggingService.shared.log("Saved icon configuration to profile \(profileId) (enabled: \(enabledCount))")
+    }
+}
+
+// MARK: - Per-Profile Metrics Card
+
+private struct ProfileMetricsCard: View {
+    let profile: Profile
+    @Binding var config: MenuBarIconConfiguration
+    @ObservedObject var profileManager: ProfileManager
+
+    /// Metric types relevant for this profile's provider
+    private var relevantMetrics: [MenuBarMetricType] {
+        switch profile.providerKind {
+        case .claude:
+            return [.session, .week, .api]
+        case .codex:
+            return [.session, .week]
+        case .copilot:
+            return [.week]  // monthly quota shown as "week" metric type
+        }
+    }
+
+    /// Whether this profile's metrics are actually visible in the menu bar
+    private var isVisibleInMenuBar: Bool {
+        if profileManager.displayMode == .single {
+            return profile.id == profileManager.activeProfile?.id
+        } else {
+            return profile.isSelectedForDisplay
+        }
+    }
+
+    /// Whether any metric is enabled for this profile
+    private var hasEnabledMetrics: Bool {
+        relevantMetrics.contains { metricType in
+            config.metrics.first(where: { $0.metricType == metricType })?.isEnabled == true
+        }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: DesignTokens.Spacing.small) {
+            // Profile header
+            HStack(spacing: 8) {
+                Image(systemName: profile.providerKind.iconName)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(SettingsColors.primary)
+                    .frame(width: 18)
+
+                Text(profile.name)
+                    .font(.system(size: 12, weight: .semibold))
+
+                Text(profile.providerKind.displayName)
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundColor(.secondary)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(
+                        Capsule()
+                            .fill(Color.secondary.opacity(0.15))
+                    )
+
+                Spacer()
+
+                // Status indicator
+                if hasEnabledMetrics && !isVisibleInMenuBar {
+                    Label {
+                        Text(profileManager.displayMode == .single
+                             ? "appearance.not_active_profile".localized
+                             : "appearance.not_selected_for_display".localized)
+                            .font(.system(size: 9))
+                    } icon: {
+                        Image(systemName: "eye.slash")
+                            .font(.system(size: 9))
+                    }
+                    .foregroundColor(.orange)
+                } else if hasEnabledMetrics && isVisibleInMenuBar {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 11))
+                        .foregroundColor(.green.opacity(0.7))
+                }
+            }
+
+            // Metric cards for this profile
+            ForEach(relevantMetrics, id: \.self) { metricType in
+                if let metricIndex = config.metrics.firstIndex(where: { $0.metricType == metricType }) {
+                    MetricIconCard(
+                        metricType: metricType,
+                        config: Binding(
+                            get: { config.metrics[metricIndex] },
+                            set: { newValue in
+                                config.metrics[metricIndex] = newValue
+                            }
+                        ),
+                        onConfigChanged: {
+                            // Trigger the binding's setter to persist
+                            let current = config
+                            config = current
+                        }
+                    )
+                }
+            }
+        }
+        .padding(DesignTokens.Spacing.small)
+        .background(
+            RoundedRectangle(cornerRadius: 10)
+                .fill(DesignTokens.Colors.cardBackground.opacity(0.5))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 10)
+                .strokeBorder(Color.primary.opacity(0.06), lineWidth: 0.5)
+        )
     }
 }
 

@@ -39,4 +39,13 @@ enum UsageProviderKind: String, Codable, CaseIterable, Identifiable {
         case .copilot: return .blue
         }
     }
+
+    /// Short prefix for menu bar icon labels in multi-profile mode
+    var menuBarPrefix: String {
+        switch self {
+        case .claude:  return "CL"
+        case .codex:   return "CX"
+        case .copilot: return "GH"
+        }
+    }
 }

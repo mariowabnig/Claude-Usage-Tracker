@@ -566,6 +566,8 @@
 "appearance.metrics_subtitle" = "Select which metrics to display in the menu bar";
 "appearance.all_metrics_off_title" = "App Logo Mode";
 "appearance.all_metrics_off_description" = "All metrics are off. The app logo will be shown in the menu bar instead. Click it to access profiles and settings.";
+"appearance.not_active_profile" = "Not the active profile";
+"appearance.not_selected_for_display" = "Not selected for display";
 
 /* ==================== */
 /* MARK: - Metric Card */

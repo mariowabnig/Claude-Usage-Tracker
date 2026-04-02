@@ -23,7 +23,8 @@ final class MenuBarIconRenderer {
         colorMode: MenuBarColorMode,
         singleColorHex: String,
         showIconName: Bool,
-        showNextSessionTime: Bool
+        showNextSessionTime: Bool,
+        profilePrefix: String? = nil
     ) -> NSImage {
         // Get the metric value and percentage
         let metricData = getMetricData(
@@ -69,7 +70,8 @@ final class MenuBarIconRenderer {
                 isDarkMode: isDarkMode,
                 colorMode: colorMode,
                 singleColorHex: singleColorHex,
-                showIconName: showIconName
+                showIconName: showIconName,
+                profilePrefix: profilePrefix
             )
         }
 
@@ -87,7 +89,8 @@ final class MenuBarIconRenderer {
                 usage: usage,
                 timeMarkerFraction: timeMarkerFraction,
                 paceStatus: paceStatus,
-                showPaceMarker: showPaceMarker
+                showPaceMarker: showPaceMarker,
+                profilePrefix: profilePrefix
             )
         case .progressBar:
             return createProgressBarStyle(
@@ -101,7 +104,8 @@ final class MenuBarIconRenderer {
                 usage: usage,
                 timeMarkerFraction: timeMarkerFraction,
                 paceStatus: paceStatus,
-                showPaceMarker: showPaceMarker
+                showPaceMarker: showPaceMarker,
+                profilePrefix: profilePrefix
             )
         case .percentageOnly:
             return createPercentageOnlyStyle(
@@ -112,7 +116,8 @@ final class MenuBarIconRenderer {
                 singleColorHex: singleColorHex,
                 showIconName: showIconName,
                 paceStatus: paceStatus,
-                showPaceMarker: showPaceMarker
+                showPaceMarker: showPaceMarker,
+                profilePrefix: profilePrefix
             )
         case .icon:
             return createIconWithBarStyle(
@@ -124,7 +129,8 @@ final class MenuBarIconRenderer {
                 showIconName: showIconName,
                 timeMarkerFraction: timeMarkerFraction,
                 paceStatus: paceStatus,
-                showPaceMarker: showPaceMarker
+                showPaceMarker: showPaceMarker,
+                profilePrefix: profilePrefix
             )
         case .compact:
             return createCompactStyle(
@@ -135,7 +141,8 @@ final class MenuBarIconRenderer {
                 singleColorHex: singleColorHex,
                 showIconName: showIconName,
                 paceStatus: paceStatus,
-                showPaceMarker: showPaceMarker
+                showPaceMarker: showPaceMarker,
+                profilePrefix: profilePrefix
             )
         }
     }
@@ -270,7 +277,8 @@ final class MenuBarIconRenderer {
         usage: ClaudeUsage,
         timeMarkerFraction: CGFloat? = nil,
         paceStatus: PaceStatus? = nil,
-        showPaceMarker: Bool = false
+        showPaceMarker: Bool = false,
+        profilePrefix: String? = nil
     ) -> NSImage {
         let percentage = CGFloat(metricData.percentage) / 100.0
 
@@ -382,8 +390,13 @@ final class MenuBarIconRenderer {
                 text = resetTime.timeRemainingHoursString() as NSString
             }
         } else if showIconName {
-            // Show full word: "Session" or "Week"
-            text = (metricType == .session ? "Session" : "Week") as NSString
+            // Show label with optional profile prefix: "CL·Session" or just "Session"
+            let baseName = metricType == .session ? "5h" : "Week"
+            if let pp = profilePrefix {
+                text = "\(pp)·\(baseName)" as NSString
+            } else {
+                text = baseName as NSString
+            }
         } else {
             // No label mode - show percentage instead
             text = "\(Int(metricData.percentage))%" as NSString
@@ -408,10 +421,16 @@ final class MenuBarIconRenderer {
         usage: ClaudeUsage,
         timeMarkerFraction: CGFloat? = nil,
         paceStatus: PaceStatus? = nil,
-        showPaceMarker: Bool = false
+        showPaceMarker: Bool = false,
+        profilePrefix: String? = nil
     ) -> NSImage {
-        // For progress bar: show "S" or "W" before the bar (not full prefix)
-        let labelWidth: CGFloat = showIconName ? 10 : 0
+        // For progress bar: show "S" or "W" before the bar, with optional profile prefix
+        let labelText: String = {
+            let base = metricType == .session ? "S" : "W"
+            if let pp = profilePrefix { return "\(pp)·\(base)" }
+            return base
+        }()
+        let labelWidth: CGFloat = showIconName ? labelText.size(withAttributes: [.font: NSFont.systemFont(ofSize: 10, weight: .semibold)]).width : 0
         let barWidth: CGFloat = 40
         let spacing: CGFloat = showIconName ? 2 : 0
         let totalWidth = labelWidth + spacing + barWidth + 2
@@ -432,13 +451,13 @@ final class MenuBarIconRenderer {
 
         var xOffset: CGFloat = 1
 
-        // Draw label before bar (just "S" or "W")
+        // Draw label before bar (e.g. "S", "W", or "CL·S" in multi-profile)
         if showIconName {
             let labelAttributes: [NSAttributedString.Key: Any] = [
                 .font: NSFont.systemFont(ofSize: 10, weight: .semibold),
                 .foregroundColor: textColor.withAlphaComponent(0.9)
             ]
-            let label = (metricType == .session ? "S" : "W") as NSString
+            let label = labelText as NSString
             let labelSize = label.size(withAttributes: labelAttributes)
             label.draw(
                 at: NSPoint(x: xOffset, y: (height - labelSize.height) / 2),
@@ -559,7 +578,8 @@ final class MenuBarIconRenderer {
         singleColorHex: String,
         showIconName: Bool,
         paceStatus: PaceStatus? = nil,
-        showPaceMarker: Bool = false
+        showPaceMarker: Bool = false,
+        profilePrefix: String? = nil
     ) -> NSImage {
         let font = NSFont.monospacedDigitSystemFont(ofSize: 12, weight: .semibold)  // Larger font
         let fillColor: NSColor = getColorForMode(colorMode, statusLevel: metricData.statusLevel, singleColorHex: singleColorHex, isDarkMode: isDarkMode)
@@ -567,7 +587,8 @@ final class MenuBarIconRenderer {
         var fullText = ""
 
         if showIconName {
-            fullText = "\(metricType.prefixText) \(metricData.displayText)"
+            let prefix = profilePrefix != nil ? "\(profilePrefix!)·\(metricType.prefixText)" : metricType.prefixText
+            fullText = "\(prefix) \(metricData.displayText)"
         } else {
             fullText = metricData.displayText
         }
@@ -610,7 +631,8 @@ final class MenuBarIconRenderer {
         showIconName: Bool,
         timeMarkerFraction: CGFloat? = nil,
         paceStatus: PaceStatus? = nil,
-        showPaceMarker: Bool = false
+        showPaceMarker: Bool = false,
+        profilePrefix: String? = nil  // Not used for circle style (too small)
     ) -> NSImage {
         // For circle: make it bigger to fit S/W in center
         let circleSize: CGFloat = showIconName ? 22 : 18  // Bigger when showing label
@@ -708,9 +730,14 @@ final class MenuBarIconRenderer {
         singleColorHex: String,
         showIconName: Bool,
         paceStatus: PaceStatus? = nil,
-        showPaceMarker: Bool = false
+        showPaceMarker: Bool = false,
+        profilePrefix: String? = nil
     ) -> NSImage {
-        let prefixWidth: CGFloat = showIconName ? 16 : 0
+        let effectivePrefix: String = {
+            if let pp = profilePrefix { return "\(pp)·\(metricType.prefixText)" }
+            return metricType.prefixText
+        }()
+        let prefixWidth: CGFloat = showIconName ? effectivePrefix.size(withAttributes: [.font: NSFont.systemFont(ofSize: 9, weight: .medium)]).width : 0
         let dotSize: CGFloat = 8
         let spacing: CGFloat = showIconName ? 1 : 0
         let hasPaceDot = showPaceMarker && paceStatus != nil
@@ -736,9 +763,9 @@ final class MenuBarIconRenderer {
                 .font: NSFont.systemFont(ofSize: 9, weight: .medium),
                 .foregroundColor: textColor.withAlphaComponent(0.85)
             ]
-            let prefixText = metricType.prefixText as NSString
-            let prefixSize = prefixText.size(withAttributes: prefixAttributes)
-            prefixText.draw(
+            let prefixLabel = effectivePrefix as NSString
+            let prefixSize = prefixLabel.size(withAttributes: prefixAttributes)
+            prefixLabel.draw(
                 at: NSPoint(x: xOffset, y: (height - prefixSize.height) / 2),
                 withAttributes: prefixAttributes
             )
@@ -772,7 +799,8 @@ final class MenuBarIconRenderer {
         isDarkMode: Bool,
         colorMode: MenuBarColorMode,
         singleColorHex: String,
-        showIconName: Bool
+        showIconName: Bool,
+        profilePrefix: String? = nil
     ) -> NSImage {
         let font = NSFont.systemFont(ofSize: 11, weight: .medium)
 
@@ -782,7 +810,8 @@ final class MenuBarIconRenderer {
         var fullText = ""
 
         if showIconName {
-            fullText = "API: \(metricData.displayText)"
+            let prefix = profilePrefix != nil ? "\(profilePrefix!)·API:" : "API:"
+            fullText = "\(prefix) \(metricData.displayText)"
         } else {
             fullText = metricData.displayText
         }
