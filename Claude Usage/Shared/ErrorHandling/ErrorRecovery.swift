@@ -144,7 +144,9 @@ class ErrorRecovery {
 
     private func exponentialBackoff(attempt: Int, base: Double = 1.0, max: Double = 30.0) -> TimeInterval {
         let delay = base * pow(2.0, Double(attempt - 1))
-        return min(delay, max)
+        let capped = min(delay, max)
+        let jitter = capped * Double.random(in: -0.1...0.1)
+        return Swift.max(0.1, capped + jitter)
     }
 
     private func linearBackoff(attempt: Int, increment: Double = 1.0) -> TimeInterval {

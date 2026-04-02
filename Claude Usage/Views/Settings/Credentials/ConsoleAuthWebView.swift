@@ -24,7 +24,8 @@ struct ConsoleAuthWebView: NSViewRepresentable {
 
     func makeNSView(context: Context) -> WKWebView {
         let config = WKWebViewConfiguration()
-        config.websiteDataStore = .default()
+        config.websiteDataStore = .nonPersistent()
+        config.preferences.javaScriptCanOpenWindowsAutomatically = false
 
         let webView = WKWebView(frame: .zero, configuration: config)
         webView.navigationDelegate = context.coordinator
@@ -62,8 +63,10 @@ struct ConsoleAuthWebView: NSViewRepresentable {
             for navigationAction: WKNavigationAction,
             windowFeatures: WKWindowFeatures
         ) -> WKWebView? {
-            // Handle Google SSO popups by loading in the same webview
-            if let url = navigationAction.request.url {
+            // Handle auth-related popups (e.g. Google SSO) by loading in same webview
+            if let url = navigationAction.request.url,
+               let host = url.host,
+               ["console.anthropic.com", "accounts.anthropic.com", "accounts.google.com"].contains(where: { host.hasSuffix($0) }) {
                 webView.load(URLRequest(url: url))
             }
             return nil

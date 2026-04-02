@@ -5,6 +5,17 @@ All notable changes to Claude Usage Tracker will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.1.4] - 2026-04-02
+
+### Security
+
+- **Safer Console Auth WebView**: Switched the embedded auth flow to a non-persistent web data store, disabled automatic JavaScript popup windows, and restricted popup redirect handling to approved Anthropic and Google auth domains
+- **Credential Log Redaction**: Removed credential-length details from debug logging so profile/session status logs now expose only `NIL` vs `EXISTS`
+
+### Reliability
+
+- **Retry Jitter**: Added randomized jitter to exponential retry backoff to reduce synchronized retry spikes under provider errors or rate limiting
+
 ## [3.1.3] - 2026-04-02
 
 ### UI

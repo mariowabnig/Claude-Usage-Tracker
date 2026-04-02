@@ -92,7 +92,7 @@ class ProfileManager: ObservableObject {
 
                 // Detailed logging for credential state
                 LoggingService.shared.log("ProfileManager.updateProfile: Updated ACTIVE profile '\(profile.name)'")
-                LoggingService.shared.log("  - claudeSessionKey: \(profile.claudeSessionKey == nil ? "NIL" : "EXISTS (len: \(profile.claudeSessionKey!.count))")")
+                LoggingService.shared.log("  - claudeSessionKey: \(profile.claudeSessionKey == nil ? "NIL" : "EXISTS")")
                 LoggingService.shared.log("  - organizationId: \(profile.organizationId == nil ? "NIL" : "EXISTS")")
                 LoggingService.shared.log("  - hasClaudeAI: \(profile.hasClaudeAI)")
                 LoggingService.shared.log("  - hasAnyCredentials: \(profile.hasAnyCredentials)")
