@@ -24,6 +24,7 @@ class CodexUsageProviderFetcher: UsageProviderFetcher {
 
     func fetchUsage(for profile: Profile) async throws -> ProviderUsageSnapshot {
         let validation = authService.validateAuth()
+        let showProviderDetails = SharedDataStore.shared.loadPopoverShowProviderDetails()
 
         guard validation.isValid,
               let authState = authService.readAuthState(),
@@ -84,28 +85,30 @@ class CodexUsageProviderFetcher: UsageProviderFetcher {
                 ))
             }
 
-            if let accountLabel = validation.accountEmail {
-                cards.append(ProviderSupplementaryCard(
-                    id: "codex-account",
-                    kind: .keyValue(label: "Account", value: accountLabel, valueColor: nil)
-                ))
-            }
+            if showProviderDetails {
+                if let accountLabel = validation.accountEmail {
+                    cards.append(ProviderSupplementaryCard(
+                        id: "codex-account",
+                        kind: .keyValue(label: "Account", value: accountLabel, valueColor: nil)
+                    ))
+                }
 
-            if let credits = response.credits {
-                if credits.unlimited {
-                    cards.append(ProviderSupplementaryCard(
-                        id: "codex-credits-unlimited",
-                        kind: .keyValue(label: "Credits", value: "Unlimited", valueColor: .adaptiveGreen)
-                    ))
-                } else if let balance = credits.balance {
-                    cards.append(ProviderSupplementaryCard(
-                        id: "codex-credits-balance",
-                        kind: .keyValue(
-                            label: "Credits",
-                            value: String(format: "%.0f remaining", balance),
-                            valueColor: balance > 0 ? .adaptiveGreen : .secondary
-                        )
-                    ))
+                if let credits = response.credits {
+                    if credits.unlimited {
+                        cards.append(ProviderSupplementaryCard(
+                            id: "codex-credits-unlimited",
+                            kind: .keyValue(label: "Credits", value: "Unlimited", valueColor: .adaptiveGreen)
+                        ))
+                    } else if let balance = credits.balance {
+                        cards.append(ProviderSupplementaryCard(
+                            id: "codex-credits-balance",
+                            kind: .keyValue(
+                                label: "Credits",
+                                value: String(format: "%.0f remaining", balance),
+                                valueColor: balance > 0 ? .adaptiveGreen : .secondary
+                            )
+                        ))
+                    }
                 }
             }
 

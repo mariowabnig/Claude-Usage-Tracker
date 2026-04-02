@@ -30,6 +30,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Updated all shipped localization files for the new multi-profile segmented control labels and app-logo-mode copy
 - Fixed raw translation key fallback in localized builds for the new popup and multi-profile settings UI
 
+### Follow-up Fixes
+
+- **Manage Profiles Layout Clamp**: Fixed the settings content and cards so the Manage Profiles view can no longer expand wider than the 720pt settings window when localized multi-profile controls are visible
+- **Provider Picker Wrapping**: Replaced the add-profile provider row with a wrapping grid so Claude, Codex, and GitHub Copilot remain visible in the creation sheet on narrower windows
+- **GitHub Copilot Labeling**: Renamed the provider option from `Copilot` to `GitHub Copilot` in the profile picker for clearer setup
+- **Popover Provider Visibility**: Fixed popover profile filtering so configured non-Claude provider profiles continue to appear even before a refresh resolves fresh usage data
+- **Non-Claude Refresh Attempt Logic**: Updated refresh gating so Codex and GitHub Copilot profiles are not skipped just because credentials have not yet been cached in memory during startup
+- **Optional Codex Detail Cards**: Codex account identifier and credit balance details are now hidden by default and can be explicitly enabled in Popover settings with a new app-wide toggle
+
 ## [3.0.3] - 2026-03-10
 
 ### 6-Tier Pace System

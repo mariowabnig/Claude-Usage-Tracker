@@ -31,6 +31,7 @@ Claude Usage Tracker is a lightweight, native macOS menu bar application for mon
 
 - **Multi-Provider Profiles**: Create Claude, Codex, and GitHub Copilot profiles with isolated credentials and settings
 - **Unified Usage Popup**: View all visible profiles together in one stacked popover with a shared visual style
+- **Privacy-Aware Provider Details**: Codex account and credit details stay hidden by default and can be enabled from Popover settings when needed
 - **Flexible Menu Bar Display**: Show a single active profile or multiple profiles side-by-side in the menu bar
 - **Claude Code Integration**: Sync CLI accounts to profiles with safer opt-in credential switching
 - **Real-Time Monitoring**: Track Claude session and weekly usage, Codex usage windows, Copilot premium interactions, and API costs per profile
@@ -59,7 +60,7 @@ Claude Usage Tracker is a lightweight, native macOS menu bar application for mon
 
 ## What's New
 
-- **v3.1.0 (2026-04-01)**: Multi-provider profile support for Claude, Codex, and GitHub Copilot; unified provider-neutral popup cards; real Codex/Copilot usage bars; stacked all-profile popup overview; safer Claude Code profile switching; localization updates for the new multi-profile controls
+- **v3.1.0 (2026-04-01)**: Multi-provider profile support for Claude, Codex, and GitHub Copilot; unified provider-neutral popup cards; real Codex/Copilot usage bars; stacked all-profile popup overview; safer Claude Code profile switching; localization updates for the new multi-profile controls; provider picker and settings layout fixes; optional provider-detail visibility in the popover
 - **v3.0.3 (2026-03-10)**: 6-tier pace system (Comfortable → Runaway) with colored pace markers on progress bars, 3 color modes (Multi-Color/Greyscale/Single Color) for menu bar and statusline, label toggles (Ctx/Usage/Reset), 24-hour time format, terminal-matching preview colors, CPU spin-loop fix in menu bar rendering
 
 - **v3.0.2 (2026-03-10)**: API cost tracking with daily chart, browser-based authentication (WKWebView sign-in), rate limit header usage for CLI OAuth, auto-sizing popover, 3-way time display picker, adaptive green color, session key expiry tracking & notifications

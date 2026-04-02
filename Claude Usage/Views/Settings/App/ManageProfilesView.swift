@@ -117,21 +117,17 @@ struct ManageProfilesView: View {
                                     .font(DesignTokens.Typography.caption)
                                     .foregroundColor(.secondary)
 
-                                Picker("", selection: Binding(
-                                    get: { profileManager.multiProfileConfig.iconStyle },
-                                    set: { newStyle in
-                                        var config = profileManager.multiProfileConfig
-                                        config.iconStyle = newStyle
-                                        profileManager.updateMultiProfileConfig(config)
-                                        NotificationCenter.default.post(name: .displayModeChanged, object: nil)
-                                    }
-                                )) {
-                                    ForEach(MultiProfileIconStyle.allCases, id: \.self) { style in
-                                        Text(style.shortNameKey.localized).tag(style)
-                                    }
-                                }
-                                .pickerStyle(.segmented)
-                                .labelsHidden()
+                                MultiProfileStylePicker(
+                                    selectedStyle: Binding(
+                                        get: { profileManager.multiProfileConfig.iconStyle },
+                                        set: { newStyle in
+                                            var config = profileManager.multiProfileConfig
+                                            config.iconStyle = newStyle
+                                            profileManager.updateMultiProfileConfig(config)
+                                            NotificationCenter.default.post(name: .displayModeChanged, object: nil)
+                                        }
+                                    )
+                                )
                             }
                             .frame(maxWidth: .infinity, alignment: .leading)
 
@@ -292,8 +288,11 @@ struct ManageProfilesView: View {
                         .font(.system(size: 11))
                 }
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
             .padding()
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .clipped()
         .sheet(isPresented: $showingCreateProfile) {
             CreateProfileSheet(
                 profileName: $newProfileName,
@@ -315,6 +314,52 @@ struct ManageProfilesView: View {
         showingCreateProfile = false
         newProfileName = ""
         selectedProvider = .claude
+    }
+}
+
+private struct MultiProfileStylePicker: View {
+    @Binding var selectedStyle: MultiProfileIconStyle
+
+    private let columns = [
+        GridItem(.adaptive(minimum: 130, maximum: 180), spacing: DesignTokens.Spacing.small, alignment: .leading)
+    ]
+
+    var body: some View {
+        LazyVGrid(columns: columns, alignment: .leading, spacing: DesignTokens.Spacing.small) {
+            ForEach(MultiProfileIconStyle.allCases, id: \.self) { style in
+                Button {
+                    selectedStyle = style
+                } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: style.icon)
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundColor(selectedStyle == style ? .accentColor : .secondary)
+                            .frame(width: 14)
+
+                        Text(style.shortNameKey.localized)
+                            .font(DesignTokens.Typography.caption)
+                            .foregroundColor(.primary)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.85)
+
+                        Spacer(minLength: 0)
+                    }
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 8)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(
+                        RoundedRectangle(cornerRadius: 10)
+                            .fill(selectedStyle == style ? Color.accentColor.opacity(0.16) : Color.primary.opacity(0.06))
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 10)
+                            .strokeBorder(selectedStyle == style ? Color.accentColor.opacity(0.65) : DesignTokens.Colors.cardBorder, lineWidth: 1)
+                    )
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
@@ -477,6 +522,10 @@ struct CreateProfileSheet: View {
     let onSave: () -> Void
     let onCancel: () -> Void
 
+    private let providerColumns = [
+        GridItem(.adaptive(minimum: 150, maximum: 220), spacing: 8, alignment: .leading)
+    ]
+
     var body: some View {
         VStack(spacing: 20) {
             Text("profiles.create_title".localized)
@@ -501,7 +550,7 @@ struct CreateProfileSheet: View {
                     .font(.system(size: 12))
                     .foregroundColor(.secondary)
 
-                HStack(spacing: 8) {
+                LazyVGrid(columns: providerColumns, alignment: .leading, spacing: 8) {
                     ForEach(UsageProviderKind.allCases) { provider in
                         Button(action: { selectedProvider = provider }) {
                             HStack(spacing: 6) {
@@ -509,9 +558,13 @@ struct CreateProfileSheet: View {
                                     .font(.system(size: 12))
                                 Text(provider.displayName)
                                     .font(.system(size: 12, weight: .medium))
+                                    .lineLimit(1)
+                                    .minimumScaleFactor(0.8)
+                                Spacer(minLength: 0)
                             }
                             .padding(.horizontal, 12)
                             .padding(.vertical, 6)
+                            .frame(maxWidth: .infinity, alignment: .leading)
                             .background(
                                 RoundedRectangle(cornerRadius: 6)
                                     .fill(selectedProvider == provider ? provider.accentColor.opacity(0.15) : Color.clear)
@@ -526,7 +579,7 @@ struct CreateProfileSheet: View {
                     }
                 }
 
-                Text("Select which AI provider this profile tracks")
+                Text("Select which AI provider this profile tracks. GitHub-based usage is listed as GitHub Copilot.")
                     .font(.system(size: 10))
                     .foregroundColor(.secondary)
             }

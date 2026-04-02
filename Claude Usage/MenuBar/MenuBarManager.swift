@@ -875,7 +875,9 @@ class MenuBarManager: NSObject, ObservableObject {
 
     /// Refreshes usage data for all profiles selected for multi-profile display
     private func refreshAllSelectedProfiles() {
-        let selectedProfiles = profileManager.profiles.filter { $0.isSelectedForDisplay && $0.hasUsageCredentials }
+        let selectedProfiles = profileManager.profiles.filter {
+            $0.isSelectedForDisplay && shouldAttemptUsageRefresh(for: $0)
+        }
 
         guard !selectedProfiles.isEmpty else {
             LoggingService.shared.log("MenuBarManager: No selected profiles with usage credentials to refresh")
@@ -895,7 +897,9 @@ class MenuBarManager: NSObject, ObservableObject {
         let activeProfileId = profileManager.activeProfile?.id
 
         let candidates = profileManager.profiles.filter { profile in
-            profile.hasUsageCredentials || profile.id == activeProfileId
+            profile.id == activeProfileId
+                || profile.providerKind != .claude
+                || profile.hasUsageCredentials
         }
 
         return candidates.sorted { lhs, rhs in
@@ -930,7 +934,7 @@ class MenuBarManager: NSObject, ObservableObject {
     /// Refreshes every profile surfaced inside the popover so the in-popover
     /// selector can switch instantly without showing stale placeholders.
     func refreshPopoverUsage() {
-        let profiles = popoverDisplayProfiles().filter(\.hasUsageCredentials)
+        let profiles = popoverDisplayProfiles().filter { shouldAttemptUsageRefresh(for: $0) }
 
         guard !profiles.isEmpty else {
             refreshUsage()
@@ -1189,7 +1193,7 @@ class MenuBarManager: NSObject, ObservableObject {
         LoggingService.shared.log("  - hasUsageCredentials: \(profile.hasUsageCredentials)")
 
         // Check for usage credentials (Claude.ai or API Console, not just CLI)
-        guard profile.hasUsageCredentials else {
+        guard shouldAttemptUsageRefresh(for: profile) else {
             LoggingService.shared.log("MenuBarManager: Skipping refresh - no usage credentials")
             // Update icons to show default logo if needed
             updateAllStatusBarIcons()
@@ -1435,6 +1439,10 @@ class MenuBarManager: NSObject, ObservableObject {
                 }
             }
         }
+    }
+
+    private func shouldAttemptUsageRefresh(for profile: Profile) -> Bool {
+        profile.providerKind != .claude || profile.hasUsageCredentials
     }
 
     /// Shows a brief success notification for user-triggered refreshes

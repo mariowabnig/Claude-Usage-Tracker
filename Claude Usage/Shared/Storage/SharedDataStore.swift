@@ -67,6 +67,7 @@ class SharedDataStore {
         // Popover Settings
         static let popoverShowRemainingTime = "popoverShowRemainingTime" // legacy bool key
         static let popoverTimeDisplay = "popoverTimeDisplay"
+        static let popoverShowProviderDetails = "popoverShowProviderDetails"
         static let timeFormatPreference = "timeFormatPreference"
     }
 
@@ -513,6 +514,17 @@ class SharedDataStore {
 
     func saveTimeFormatPreference(_ format: TimeFormatPreference) {
         defaults.set(format.rawValue, forKey: Keys.timeFormatPreference)
+    }
+
+    func savePopoverShowProviderDetails(_ show: Bool) {
+        defaults.set(show, forKey: Keys.popoverShowProviderDetails)
+    }
+
+    func loadPopoverShowProviderDetails() -> Bool {
+        if defaults.object(forKey: Keys.popoverShowProviderDetails) == nil {
+            return false
+        }
+        return defaults.bool(forKey: Keys.popoverShowProviderDetails)
     }
 
     func loadTimeFormatPreference() -> TimeFormatPreference {

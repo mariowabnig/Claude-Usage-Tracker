@@ -10,6 +10,7 @@ import SwiftUI
 struct PopoverSettingsView: View {
     @State private var timeDisplay: PopoverTimeDisplay = SharedDataStore.shared.loadPopoverTimeDisplay()
     @State private var timeFormat: TimeFormatPreference = SharedDataStore.shared.loadTimeFormatPreference()
+    @State private var showProviderDetails: Bool = SharedDataStore.shared.loadPopoverShowProviderDetails()
 
     var body: some View {
         ScrollView {
@@ -38,6 +39,17 @@ struct PopoverSettingsView: View {
                     .pickerStyle(.segmented)
                     .labelsHidden()
                 }
+
+                SettingsSectionCard(
+                    title: "Provider details",
+                    subtitle: "Show account and credit details for providers like Codex in the popover"
+                ) {
+                    SettingToggle(
+                        title: "Show provider account details",
+                        description: "Off by default. Enable this only if you want to see account and token-related provider details in the popover.",
+                        isOn: $showProviderDetails
+                    )
+                }
             }
             .padding()
         }
@@ -46,6 +58,9 @@ struct PopoverSettingsView: View {
         }
         .onChange(of: timeFormat) { _, newValue in
             SharedDataStore.shared.saveTimeFormatPreference(newValue)
+        }
+        .onChange(of: showProviderDetails) { _, newValue in
+            SharedDataStore.shared.savePopoverShowProviderDetails(newValue)
         }
     }
 }

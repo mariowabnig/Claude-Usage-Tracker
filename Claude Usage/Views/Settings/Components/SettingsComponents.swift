@@ -54,6 +54,7 @@ struct SettingsSectionCard<Content: View>: View {
             RoundedRectangle(cornerRadius: DesignTokens.Radius.card)
                 .strokeBorder(DesignTokens.Colors.cardBorder, lineWidth: 1)
         )
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
@@ -74,6 +75,7 @@ struct SettingsContentCard<Content: View>: View {
                 RoundedRectangle(cornerRadius: DesignTokens.Radius.card)
                     .strokeBorder(DesignTokens.Colors.cardBorder, lineWidth: 1)
             )
+            .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 

@@ -20,7 +20,7 @@ enum UsageProviderKind: String, Codable, CaseIterable, Identifiable {
         switch self {
         case .claude:  return "Claude"
         case .codex:   return "Codex"
-        case .copilot: return "Copilot"
+        case .copilot: return "GitHub Copilot"
         }
     }
 
