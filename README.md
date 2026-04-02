@@ -272,7 +272,7 @@ Claude Usage Tracker supports unlimited profiles, so you can manage separate Cla
 - **Fun Auto-Names**: Profiles auto-generate with names like "Quantum Llama", "Sneaky Penguin", "Turbo Sloth"
 - **Custom Names**: Rename profiles to whatever you prefer
 - **Quick Switching**: Switch profiles instantly from settings and profile management views
-- **Provider Picker**: Choose Claude, Codex, or Copilot when creating a profile
+- **Provider Picker**: Choose Claude, Codex, or GitHub Copilot when creating a profile
 - **Profile Badges**: Visual indicators show provider type and connection state
 
 #### Claude Code CLI Integration
@@ -284,7 +284,7 @@ Claude Usage Tracker supports unlimited profiles, so you can manage separate Cla
 
 #### Per-Profile Settings
 Each profile has isolated settings:
-- **Credentials**: Separate Claude.ai session keys, Codex auth detection, Copilot GitHub auth, API keys, and organization IDs
+- **Credentials**: Separate Claude.ai session keys, Codex auth detection, GitHub Copilot auth, API keys, and organization IDs
 - **Appearance**: Independent icon styles and monochrome mode
 - **Refresh Interval**: Custom refresh rates (5-300 seconds)
 - **Auto-Start Sessions**: Enable/disable per profile
@@ -301,7 +301,7 @@ Access profile switcher in multiple places:
 1. **Create Profiles**:
    - Go to Settings → Manage Profiles
    - Click "Create New Profile"
-   - Choose Claude, Codex, or Copilot
+   - Choose Claude, Codex, or GitHub Copilot
    - Auto-generates a fun name or enter your own
 
 2. **Configure Credentials**:
@@ -318,6 +318,11 @@ Access profile switcher in multiple places:
 4. **Switch Profiles**:
    - Use the settings sidebar picker or Manage Profiles
    - In multi-profile mode, the popover shows all visible profiles together
+
+5. **GitHub Copilot Auth**:
+   - Sign in once with the GitHub CLI by running `gh auth login` in Terminal
+   - The app reads your existing `gh` login automatically; no separate in-app GitHub sign-in is required
+   - If you already use `gh` on the Mac, creating a GitHub Copilot profile is enough
 
 
 ---

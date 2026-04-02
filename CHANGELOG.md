@@ -37,6 +37,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **GitHub Copilot Labeling**: Renamed the provider option from `Copilot` to `GitHub Copilot` in the profile picker for clearer setup
 - **Popover Provider Visibility**: Fixed popover profile filtering so configured non-Claude provider profiles continue to appear even before a refresh resolves fresh usage data
 - **Non-Claude Refresh Attempt Logic**: Updated refresh gating so Codex and GitHub Copilot profiles are not skipped just because credentials have not yet been cached in memory during startup
+- **GitHub CLI Detection in Installed App**: Updated Copilot auth lookup to resolve the `gh` binary from common macOS install locations so Finder-launched builds in `/Applications` can reuse existing GitHub CLI logins reliably
 - **Optional Codex Detail Cards**: Codex account identifier and credit balance details are now hidden by default and can be explicitly enabled in Popover settings with a new app-wide toggle
 
 ## [3.0.3] - 2026-03-10

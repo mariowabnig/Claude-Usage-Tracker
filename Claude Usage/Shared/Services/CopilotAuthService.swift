@@ -140,12 +140,17 @@ class CopilotAuthService {
     }
 
     nonisolated private static func loadCLITokenFromCLI() -> String? {
+        guard let ghExecutablePath = resolveGitHubCLIPath() else {
+            LoggingService.shared.logError("CopilotAuthService: GitHub CLI not found in standard locations")
+            return nil
+        }
+
         let process = Process()
         let stdout = Pipe()
         let stderr = Pipe()
 
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
-        process.arguments = ["gh", "auth", "token"]
+        process.executableURL = URL(fileURLWithPath: ghExecutablePath)
+        process.arguments = ["auth", "token"]
         process.standardOutput = stdout
         process.standardError = stderr
 
@@ -153,7 +158,13 @@ class CopilotAuthService {
             try process.run()
             process.waitUntilExit()
 
-            guard process.terminationStatus == 0 else { return nil }
+            guard process.terminationStatus == 0 else {
+                let errorData = stderr.fileHandleForReading.readDataToEndOfFile()
+                let errorOutput = String(data: errorData, encoding: .utf8)?
+                    .trimmingCharacters(in: .whitespacesAndNewlines) ?? "unknown error"
+                LoggingService.shared.logError("CopilotAuthService: GitHub CLI token command failed: \(errorOutput)")
+                return nil
+            }
 
             let data = stdout.fileHandleForReading.readDataToEndOfFile()
             let token = String(data: data, encoding: .utf8)?
@@ -164,6 +175,28 @@ class CopilotAuthService {
             LoggingService.shared.logError("CopilotAuthService: Failed to read GitHub CLI token: \(error.localizedDescription)")
             return nil
         }
+    }
+
+    nonisolated private static func resolveGitHubCLIPath() -> String? {
+        let environmentPaths = (ProcessInfo.processInfo.environment["PATH"] ?? "")
+            .split(separator: ":")
+            .map(String.init)
+
+        let candidatePaths = environmentPaths + [
+            "/opt/homebrew/bin",
+            "/usr/local/bin",
+            "/usr/bin"
+        ]
+
+        let fileManager = FileManager.default
+        for directory in candidatePaths {
+            let executablePath = (directory as NSString).appendingPathComponent("gh")
+            if fileManager.isExecutableFile(atPath: executablePath) {
+                return executablePath
+            }
+        }
+
+        return nil
     }
 }
 
