@@ -759,15 +759,19 @@ struct UsageRow: View {
             }
             .frame(height: 4)
 
-            // Reset time
+            // Reset time & elapsed percentage on one line
             if let reset = resetTime {
-                Text(resetTimeText(for: reset))
-                    .font(.system(size: 9))
-                    .foregroundColor(.secondary)
-            }
-
-            // Elapsed percentage
-            if let elapsed = rawElapsedFraction {
+                let resetStr = resetTimeText(for: reset)
+                if let elapsed = rawElapsedFraction {
+                    Text("\(resetStr)  |  \(String(format: "menubar.elapsed_percentage".localized, Int(elapsed * 100)))")
+                        .font(.system(size: 9, weight: .medium))
+                        .foregroundColor(.secondary)
+                } else {
+                    Text(resetStr)
+                        .font(.system(size: 9))
+                        .foregroundColor(.secondary)
+                }
+            } else if let elapsed = rawElapsedFraction {
                 Text(String(format: "menubar.elapsed_percentage".localized, Int(elapsed * 100)))
                     .font(.system(size: 9, weight: .medium))
                     .foregroundColor(.secondary)

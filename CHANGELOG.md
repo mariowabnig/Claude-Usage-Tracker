@@ -5,6 +5,12 @@ All notable changes to Claude Usage Tracker will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.1.1] - 2026-04-02
+
+### UI
+
+- **Compact Reset + Elapsed Line**: Combined the reset time and elapsed percentage into a single line in usage rows (`Zurücksetzen Today 15:59  |  29% verstrichen`), reducing overall popover height
+
 ## [3.1.0] - 2026-04-01
 
 ### Multi-Provider Usage Visuals

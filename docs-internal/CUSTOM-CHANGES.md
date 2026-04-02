@@ -178,13 +178,24 @@ This file helps track what we've changed so upstream merges stay manageable.
 
 ---
 
+## 13. Compact Reset + Elapsed Line
+
+**Date:** 2026-04-02
+**Purpose:** Reduce popover height by combining the reset time and elapsed percentage into a single line, separated by a pipe character.
+
+**Modified:** `MenuBar/PopoverContentView.swift`
+- `UsageRow`: Merged the "Zurücksetzen …" and "X% verstrichen" texts into one line: `Zurücksetzen Today 15:59  |  29% verstrichen`
+- Falls back to showing either value alone when the other is unavailable
+
+---
+
 ## Files Modified (summary)
 
 | File | Change |
 |------|--------|
 | `Shared/Utilities/PeakHoursHelper.swift` | NEW — peak detection, countdown, notifications, tooltips |
 | `Shared/Extensions/Color+AppColors.swift` | peakAmber, safeDynamic colors |
-| `MenuBar/PopoverContentView.swift` | Banner, stripes, pace, footer (schedule + trend + weekend), elapsed %, peak countdown |
+| `MenuBar/PopoverContentView.swift` | Banner, stripes, pace, footer (schedule + trend + weekend), elapsed %, peak countdown, compact reset+elapsed line |
 | `MenuBar/MenuBarIconRenderer.swift` | Striped bars during peak (battery + progress bar) |
 | `MenuBar/MenuBarManager.swift` | Peak warning notification hook |
 | `MenuBar/StatusBarUIManager.swift` | Tooltips on menu bar icons |
