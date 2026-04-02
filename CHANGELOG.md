@@ -5,6 +5,12 @@ All notable changes to Claude Usage Tracker will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.1.5] - 2026-04-02
+
+### Fixed
+
+- **Claude usage shows 0% with CLI OAuth**: The active-profile refresh path was calling the legacy `fetchUsageData()` (no-arg) which used a Messages API header hack that returns 0% for consumer OAuth tokens. Now routes through `fetchUsageForProfile()` which correctly uses the profile's credentials in priority order (session key → stored CLI OAuth → system keychain).
+
 ## [3.1.4] - 2026-04-02
 
 ### Security

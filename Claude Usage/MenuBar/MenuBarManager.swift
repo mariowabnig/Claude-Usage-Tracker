@@ -1280,7 +1280,7 @@ class MenuBarManager: NSObject, ObservableObject {
             let currentProfileId = await MainActor.run { self.profileManager.activeProfile?.id }
 
             // Fetch usage and status in parallel
-            async let usageResult = apiService.fetchUsageData()
+            async let usageResult = fetchUsageForProfile(profile)
             async let statusResult = statusService.fetchStatus()
 
             var usageSuccess = false
