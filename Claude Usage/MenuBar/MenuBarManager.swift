@@ -182,19 +182,25 @@ class MenuBarManager: NSObject, ObservableObject {
                 return
             }
 
-            let timeSinceLastRefresh = Date().timeIntervalSince(self.lastRefreshTriggerTime)
-            if timeSinceLastRefresh > 2.0 {  // At least 2 seconds since last refresh
+            // Always refresh if we haven't had a successful refresh yet (e.g. after restart)
+            if self.lastSuccessfulRefreshTime == nil {
+                LoggingService.shared.log("Network available - no successful refresh yet, fetching immediately")
                 self.refreshUsage()
             } else {
-                LoggingService.shared.log("Skipping network-available refresh (too soon after last refresh)")
+                let timeSinceLastRefresh = Date().timeIntervalSince(self.lastRefreshTriggerTime)
+                if timeSinceLastRefresh > 2.0 {  // At least 2 seconds since last refresh
+                    self.refreshUsage()
+                } else {
+                    LoggingService.shared.log("Skipping network-available refresh (too soon after last refresh)")
+                }
             }
         }
         networkMonitor.startMonitoring()
 
-        // Initial data fetch (with small delay for launch-at-login scenarios)
+        // Initial data fetch (brief delay to let the run loop stabilize at launch)
         // Only if profile has usage credentials (not just CLI)
         if let profile = profileManager.activeProfile, profile.hasUsageCredentials {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
                 self?.refreshUsage()
             }
         } else {
@@ -679,7 +685,7 @@ class MenuBarManager: NSObject, ObservableObject {
                 return
             }
             LoggingService.shared.log("MenuBarManager: Wake from sleep detected, refreshing after delay")
-            DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) { [weak self] in
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
                 self?.lastAutoRefreshTime = Date()
                 self?.refreshUsage()
             }

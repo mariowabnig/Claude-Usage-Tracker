@@ -209,6 +209,25 @@ This file helps track what we've changed so upstream merges stay manageable.
 
 ---
 
+## 15. Faster Startup Sync
+
+**Date:** 2026-04-03
+**Purpose:** Usage data took too long to appear in the menu bar after a PC restart. Stale cached data would sit for 4+ seconds before the first fresh API fetch completed.
+
+### Root causes
+- 1.0s intentional delay before first API fetch (over-conservative for launch-at-login)
+- 3.0s delay on wake-from-sleep refresh
+- Network-available callback debounced even when no successful refresh had occurred yet
+
+### Changes
+
+**Modified:** `MenuBar/MenuBarManager.swift`
+- Reduced initial fetch delay from 1.0s → 0.3s (enough for run loop to stabilize)
+- Reduced wake-from-sleep refresh delay from 3.0s → 1.0s
+- Network-available callback now skips debounce and fetches immediately if no successful refresh has occurred this session (`lastSuccessfulRefreshTime == nil`)
+
+---
+
 ## Files Modified (summary)
 
 | File | Change |

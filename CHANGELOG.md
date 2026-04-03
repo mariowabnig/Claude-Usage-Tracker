@@ -5,6 +5,12 @@ All notable changes to Claude Usage Tracker will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.1.6] - 2026-04-03
+
+### Performance
+
+- **Faster startup sync**: Reduced initial fetch delay from 1.0s to 0.3s and wake-from-sleep delay from 3.0s to 1.0s. Network-available callback now triggers immediately when no successful refresh has occurred yet, eliminating the stale-data window after restarts.
+
 ## [3.1.5] - 2026-04-02
 
 ### Fixed
