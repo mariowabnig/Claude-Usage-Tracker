@@ -46,14 +46,26 @@ extension ClaudeAPIService {
     }
 
     struct OverageCreditGrantResponse: Codable {
+        // Legacy fields (may still appear in some API versions)
         let remainingBalance: Double?
-        let currency: String?
         let totalGranted: Double?
+        // Current API fields
+        let amountMinorUnits: Double?
+        let currency: String?
+        let granted: Bool?
 
         enum CodingKeys: String, CodingKey {
             case remainingBalance = "remaining_balance"
-            case currency
             case totalGranted = "total_granted"
+            case amountMinorUnits = "amount_minor_units"
+            case currency
+            case granted
+        }
+
+        /// Resolves the credit balance from whichever field the API provides.
+        /// `amount_minor_units` (current) takes priority over `remaining_balance` (legacy).
+        var resolvedBalance: Double? {
+            amountMinorUnits ?? remainingBalance
         }
     }
 

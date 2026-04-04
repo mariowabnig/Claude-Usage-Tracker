@@ -13,6 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **CLI OAuth missing overage data**: CLI OAuth auth paths now supplement overage and credit grant data via session key when available
 - **Stale CLI credentials on launch**: App now re-syncs expired CLI OAuth tokens from system keychain on every launch, not just first launch
 - **Duplicated fetch logic**: `MenuBarManager.fetchUsageForProfile` now delegates to `ClaudeUsageProviderFetcher` instead of maintaining a separate priority chain
+- **Credit grant API field change**: Updated `OverageCreditGrantResponse` to read `amount_minor_units` (current API) with fallback to `remaining_balance` (legacy)
+- **WebView cookie extraction**: Added 1.5s polling timer for session key cookie detection — catches SPA-based logins that don't trigger full page navigations
 - **Copilot test failures**: Fixed `testCopilotDisplayName` expectation and removed singleton dependency from `testHasUsageCredentialsCopilot_withoutToken`
 
 ## [3.1.6] - 2026-04-03

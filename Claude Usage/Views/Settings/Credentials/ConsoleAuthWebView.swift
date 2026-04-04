@@ -46,15 +46,23 @@ struct ConsoleAuthWebView: NSViewRepresentable {
         let cookieDomain: String
         let onCookieFound: (ConsoleCookieResult) -> Void
         private var foundCookie = false
+        private var pollTimer: Timer?
+        private weak var activeWebView: WKWebView?
 
         init(cookieDomain: String, onCookieFound: @escaping (ConsoleCookieResult) -> Void) {
             self.cookieDomain = cookieDomain
             self.onCookieFound = onCookieFound
         }
 
+        deinit {
+            pollTimer?.invalidate()
+        }
+
         func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
             guard !foundCookie else { return }
+            activeWebView = webView
             checkForSessionCookie(in: webView)
+            startPollingIfNeeded(webView: webView)
         }
 
         func webView(
@@ -66,10 +74,23 @@ struct ConsoleAuthWebView: NSViewRepresentable {
             // Handle auth-related popups (e.g. Google SSO) by loading in same webview
             if let url = navigationAction.request.url,
                let host = url.host,
-               ["console.anthropic.com", "accounts.anthropic.com", "accounts.google.com"].contains(where: { host.hasSuffix($0) }) {
+               ["claude.ai", "console.anthropic.com", "accounts.anthropic.com", "accounts.google.com"].contains(where: { host.hasSuffix($0) }) {
                 webView.load(URLRequest(url: url))
             }
             return nil
+        }
+
+        /// Polls cookies every 1.5s to catch SPA-based logins that don't trigger didFinish.
+        private func startPollingIfNeeded(webView: WKWebView) {
+            guard pollTimer == nil else { return }
+            pollTimer = Timer.scheduledTimer(withTimeInterval: 1.5, repeats: true) { [weak self] _ in
+                guard let self = self, !self.foundCookie, let wv = self.activeWebView else {
+                    self?.pollTimer?.invalidate()
+                    self?.pollTimer = nil
+                    return
+                }
+                self.checkForSessionCookie(in: wv)
+            }
         }
 
         private func checkForSessionCookie(in webView: WKWebView) {
@@ -79,6 +100,8 @@ struct ConsoleAuthWebView: NSViewRepresentable {
                 for cookie in cookies {
                     if cookie.name == "sessionKey" && cookie.domain.contains(self.cookieDomain) {
                         self.foundCookie = true
+                        self.pollTimer?.invalidate()
+                        self.pollTimer = nil
                         let result = ConsoleCookieResult(
                             sessionKey: cookie.value,
                             expiryDate: cookie.expiresDate

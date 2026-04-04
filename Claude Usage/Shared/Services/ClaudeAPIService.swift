@@ -412,7 +412,7 @@ class ClaudeAPIService: APIServiceProtocol {
         if usage.overageBalance == nil,
            let creditData = await creditTask,
            let creditGrant = try? JSONDecoder().decode(OverageCreditGrantResponse.self, from: creditData) {
-            usage.overageBalance = creditGrant.remainingBalance
+            usage.overageBalance = creditGrant.resolvedBalance
             usage.overageBalanceCurrency = creditGrant.currency
         }
     }
@@ -440,7 +440,7 @@ class ClaudeAPIService: APIServiceProtocol {
 
         if let creditData = try? await creditGrantTask,
            let creditGrant = try? JSONDecoder().decode(OverageCreditGrantResponse.self, from: creditData) {
-            claudeUsage.overageBalance = creditGrant.remainingBalance
+            claudeUsage.overageBalance = creditGrant.resolvedBalance
             claudeUsage.overageBalanceCurrency = creditGrant.currency
         }
 
@@ -506,7 +506,7 @@ class ClaudeAPIService: APIServiceProtocol {
             if checkOverage,
                let creditData = try? await creditGrantTask,
                let creditGrant = try? JSONDecoder().decode(OverageCreditGrantResponse.self, from: creditData) {
-                claudeUsage.overageBalance = creditGrant.remainingBalance
+                claudeUsage.overageBalance = creditGrant.resolvedBalance
                 claudeUsage.overageBalanceCurrency = creditGrant.currency
             }
 
