@@ -51,6 +51,9 @@ class ProfileManager: ObservableObject {
             }
         }
 
+        // Re-sync CLI credentials for profiles with expired stored tokens
+        refreshStaleCLICredentials()
+
         displayMode = profileStore.loadDisplayMode()
         multiProfileConfig = profileStore.loadMultiProfileConfig()
 
@@ -522,6 +525,41 @@ class ProfileManager: ObservableObject {
             LoggingService.shared.logError("ProfileManager: Failed to sync CLI credentials on first launch (non-fatal)", error: error)
             // Non-fatal: profile will be created without credentials
             // User can manually sync in settings
+        }
+    }
+
+    /// Re-syncs CLI credentials for profiles whose stored token is expired but fresh system creds exist.
+    /// Called on every app launch so profiles don't stay stuck with stale tokens after `claude auth login`.
+    private func refreshStaleCLICredentials() {
+        for (index, profile) in profiles.enumerated() {
+            guard profile.providerKind == .claude,
+                  profile.hasCliAccount || profile.cliCredentialsJSON != nil else { continue }
+
+            // Skip if stored token is still valid
+            if let json = profile.cliCredentialsJSON, !cliSyncService.isTokenExpired(json) {
+                continue
+            }
+
+            // Stored token expired or missing — try to refresh from system
+            do {
+                guard let systemCreds = try cliSyncService.readSystemCredentials(),
+                      !cliSyncService.isTokenExpired(systemCreds),
+                      cliSyncService.extractAccessToken(from: systemCreds) != nil else {
+                    continue
+                }
+
+                try cliSyncService.syncToProfile(profile.id)
+                profiles = profileStore.loadProfiles()
+
+                // Update activeProfile reference if it was refreshed
+                if activeProfile?.id == profile.id {
+                    activeProfile = profiles.first(where: { $0.id == profile.id })
+                }
+
+                LoggingService.shared.log("ProfileManager: Re-synced stale CLI credentials for '\(profile.name)'")
+            } catch {
+                LoggingService.shared.log("ProfileManager: Could not refresh CLI creds for '\(profile.name)': \(error.localizedDescription)")
+            }
         }
     }
 

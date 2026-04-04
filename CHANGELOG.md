@@ -11,6 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Credit balance not displayed**: Gifted and purchased API credit balances now show independently in the popover, no longer gated behind the spend-limit conditional
 - **CLI OAuth missing overage data**: CLI OAuth auth paths now supplement overage and credit grant data via session key when available
+- **Stale CLI credentials on launch**: App now re-syncs expired CLI OAuth tokens from system keychain on every launch, not just first launch
+- **Duplicated fetch logic**: `MenuBarManager.fetchUsageForProfile` now delegates to `ClaudeUsageProviderFetcher` instead of maintaining a separate priority chain
 - **Copilot test failures**: Fixed `testCopilotDisplayName` expectation and removed singleton dependency from `testHasUsageCredentialsCopilot_withoutToken`
 
 ## [3.1.6] - 2026-04-03

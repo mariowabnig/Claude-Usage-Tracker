@@ -237,6 +237,8 @@ This file helps track what we've changed so upstream merges stay manageable.
 - Credit grant balance card was nested inside `costUsed`/`costLimit` check — only shown if a spend limit was enabled
 - CLI OAuth auth path (Priority 2/3) never called `/overage_spend_limit` or `/overage_credit_grant` endpoints
 - Accounts with gifted credits but no spend limit saw nothing
+- `MenuBarManager.fetchUsageForProfile()` duplicated the priority chain without overage supplement
+- CLI credentials went stale after re-auth; app never re-synced on non-first launch
 
 ### Changes
 
@@ -249,6 +251,12 @@ This file helps track what we've changed so upstream merges stay manageable.
 **Modified:** `Shared/Services/Providers/ClaudeUsageProviderFetcher.swift`
 - CLI OAuth branches (Priority 2/3) now call `supplementOverageIfNeeded()` to fetch overage data via session key when available
 - Supplement only runs for CLI OAuth paths — session key path already fetches internally, avoiding duplicate requests
+
+**Modified:** `MenuBar/MenuBarManager.swift`
+- `fetchUsageForProfile()` now delegates to `ClaudeUsageProviderFetcher.fetchClaudeUsage()` instead of duplicating the priority chain
+
+**Modified:** `Shared/Services/ProfileManager.swift`
+- Added `refreshStaleCLICredentials()` — called on every `loadProfiles()`, re-syncs expired CLI tokens from system keychain
 
 **Modified:** `Claude UsageTests/ProviderModelsTests.swift`
 - Fixed `testCopilotDisplayName` — expected `"Copilot"` but source returns `"GitHub Copilot"`
@@ -273,3 +281,5 @@ This file helps track what we've changed so upstream merges stay manageable.
 | `Shared/Services/Providers/ClaudeUsageSnapshotAdapter.swift` | Credit balance shown independently |
 | `Shared/Services/ClaudeAPIService.swift` | `supplementOverageData` for CLI OAuth paths |
 | `Shared/Services/Providers/ClaudeUsageProviderFetcher.swift` | Overage supplement in CLI OAuth branches |
+| `Shared/Services/ProfileManager.swift` | Auto-refresh stale CLI tokens on launch |
+| `MenuBar/MenuBarManager.swift` | Delegates to provider fetcher, no more duplicated priority chain |
