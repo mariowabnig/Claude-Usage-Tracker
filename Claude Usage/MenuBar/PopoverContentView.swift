@@ -546,7 +546,10 @@ struct SmartUsageDashboard: View {
                     }
 
                 case .providerStatus(let connected, let statusText):
-                    ProviderStatusCard(connected: connected, statusText: statusText, provider: snapshot.provider)
+                    // Only show status card when disconnected/errored — "Connected" is noise
+                    if !connected {
+                        ProviderStatusCard(connected: connected, statusText: statusText, provider: snapshot.provider)
+                    }
                 }
             }
         }
