@@ -228,6 +228,34 @@ This file helps track what we've changed so upstream merges stay manageable.
 
 ---
 
+## 16. Credit Balance Display Fix
+
+**Date:** 2026-04-04
+**Purpose:** Gifted API credits (and purchased credit balances) were invisible in the popover because the display was gated behind a spend-limit conditional, and CLI OAuth paths never fetched the data.
+
+### Root causes
+- Credit grant balance card was nested inside `costUsed`/`costLimit` check — only shown if a spend limit was enabled
+- CLI OAuth auth path (Priority 2/3) never called `/overage_spend_limit` or `/overage_credit_grant` endpoints
+- Accounts with gifted credits but no spend limit saw nothing
+
+### Changes
+
+**Modified:** `Shared/Services/Providers/ClaudeUsageSnapshotAdapter.swift`
+- Moved credit grant balance card out of the spend-limit conditional — now displays independently when `overageBalance` is present
+
+**Modified:** `Shared/Services/ClaudeAPIService.swift`
+- Added `supplementOverageData(_:sessionKey:organizationId:)` — public method to fetch overage + credit grant endpoints and merge into existing `ClaudeUsage`
+
+**Modified:** `Shared/Services/Providers/ClaudeUsageProviderFetcher.swift`
+- CLI OAuth branches (Priority 2/3) now call `supplementOverageIfNeeded()` to fetch overage data via session key when available
+- Supplement only runs for CLI OAuth paths — session key path already fetches internally, avoiding duplicate requests
+
+**Modified:** `Claude UsageTests/ProviderModelsTests.swift`
+- Fixed `testCopilotDisplayName` — expected `"Copilot"` but source returns `"GitHub Copilot"`
+- Fixed `testHasUsageCredentialsCopilot_withoutToken` — removed singleton dependency, now tests profile-level contract directly
+
+---
+
 ## Files Modified (summary)
 
 | File | Change |
@@ -242,3 +270,6 @@ This file helps track what we've changed so upstream merges stay manageable.
 | `Resources/en.lproj/Localizable.strings` | Peak hours localization keys |
 | `Resources/de.lproj/Localizable.strings` | German translations |
 | `scripts/build-and-install.sh` | NEW — build + install script |
+| `Shared/Services/Providers/ClaudeUsageSnapshotAdapter.swift` | Credit balance shown independently |
+| `Shared/Services/ClaudeAPIService.swift` | `supplementOverageData` for CLI OAuth paths |
+| `Shared/Services/Providers/ClaudeUsageProviderFetcher.swift` | Overage supplement in CLI OAuth branches |

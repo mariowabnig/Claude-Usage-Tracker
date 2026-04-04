@@ -392,6 +392,31 @@ class ClaudeAPIService: APIServiceProtocol {
         return selectedOrg.uuid
     }
 
+    /// Fetches overage spend limit and credit grant data, merging into the given ClaudeUsage.
+    /// Non-fatal: silently no-ops on network or decode errors.
+    func supplementOverageData(_ usage: inout ClaudeUsage, sessionKey: String, organizationId: String) async {
+        async let overageTask: Data? = try? performRequest(
+            endpoint: "/organizations/\(organizationId)/overage_spend_limit", sessionKey: sessionKey)
+        async let creditTask: Data? = try? performRequest(
+            endpoint: "/organizations/\(organizationId)/overage_credit_grant", sessionKey: sessionKey)
+
+        if usage.costUsed == nil,
+           let data = await overageTask,
+           let overage = try? JSONDecoder().decode(OverageSpendLimitResponse.self, from: data),
+           overage.isEnabled == true {
+            usage.costUsed = overage.usedCredits
+            usage.costLimit = overage.monthlyCreditLimit
+            usage.costCurrency = overage.currency
+        }
+
+        if usage.overageBalance == nil,
+           let creditData = await creditTask,
+           let creditGrant = try? JSONDecoder().decode(OverageCreditGrantResponse.self, from: creditData) {
+            usage.overageBalance = creditGrant.remainingBalance
+            usage.overageBalanceCurrency = creditGrant.currency
+        }
+    }
+
     /// Fetches usage data for a specific profile using provided credentials
     /// - Parameters:
     ///   - sessionKey: The Claude.ai session key

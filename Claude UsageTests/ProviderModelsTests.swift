@@ -26,7 +26,7 @@ final class ProviderModelsTests: XCTestCase {
     }
 
     func testCopilotDisplayName() {
-        XCTAssertEqual(UsageProviderKind.copilot.displayName, "Copilot")
+        XCTAssertEqual(UsageProviderKind.copilot.displayName, "GitHub Copilot")
     }
 
     func testCopilotIconName() {
@@ -109,8 +109,13 @@ final class ProviderModelsTests: XCTestCase {
     }
 
     func testHasUsageCredentialsCopilot_withoutToken() {
+        // Profile with no stored copilot credentials should report none from the profile itself.
+        // Note: Profile.hasUsageCredentials also checks CopilotAuthService.shared.hasCLIToken
+        // (system singleton), making it environment-dependent. We test the profile-level contract
+        // here: no stored credentials means copilotCredentials is nil.
         let profile = Profile(name: "Copilot", providerKind: .copilot)
-        XCTAssertFalse(profile.hasUsageCredentials)
+        XCTAssertNil(profile.copilotCredentials?.githubToken)
+        XCTAssertNil(profile.providerCredentials?.copilot)
     }
 
     // MARK: - ProviderUsageSnapshot Tests

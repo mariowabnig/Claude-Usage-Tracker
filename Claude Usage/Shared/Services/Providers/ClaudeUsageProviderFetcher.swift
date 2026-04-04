@@ -20,7 +20,7 @@ class ClaudeUsageProviderFetcher: UsageProviderFetcher {
     }
 
     func fetchUsage(for profile: Profile) async throws -> ProviderUsageSnapshot {
-        let claudeUsage = try await fetchClaudeUsage(for: profile)
+        var claudeUsage = try await fetchClaudeUsage(for: profile)
 
         // Fetch API usage separately (non-fatal if it fails)
         var apiUsage: APIUsage? = nil
@@ -38,6 +38,7 @@ class ClaudeUsageProviderFetcher: UsageProviderFetcher {
     /// Fetches raw ClaudeUsage using the profile's credentials (priority-based)
     func fetchClaudeUsage(for profile: Profile) async throws -> ClaudeUsage {
         // Priority 1: claude.ai session key (cookie-based)
+        // This path already fetches overage/credit grant data internally.
         if let sessionKey = profile.claudeSessionKey,
            let orgId = profile.organizationId {
             return try await apiService.fetchUsageData(sessionKey: sessionKey, organizationId: orgId)
@@ -47,14 +48,19 @@ class ClaudeUsageProviderFetcher: UsageProviderFetcher {
         if let cliJSON = profile.cliCredentialsJSON,
            !ClaudeCodeSyncService.shared.isTokenExpired(cliJSON),
            let accessToken = ClaudeCodeSyncService.shared.extractAccessToken(from: cliJSON) {
-            return try await apiService.fetchUsageData(oauthAccessToken: accessToken)
+            var usage = try await apiService.fetchUsageData(oauthAccessToken: accessToken)
+            // CLI OAuth can't fetch org-scoped overage data; supplement via session key if available
+            await supplementOverageIfNeeded(&usage, profile: profile)
+            return usage
         }
 
         // Priority 3: System Keychain CLI OAuth token
         if let systemCredentials = try? ClaudeCodeSyncService.shared.readSystemCredentials(),
            !ClaudeCodeSyncService.shared.isTokenExpired(systemCredentials),
            let accessToken = ClaudeCodeSyncService.shared.extractAccessToken(from: systemCredentials) {
-            return try await apiService.fetchUsageData(oauthAccessToken: accessToken)
+            var usage = try await apiService.fetchUsageData(oauthAccessToken: accessToken)
+            await supplementOverageIfNeeded(&usage, profile: profile)
+            return usage
         }
 
         throw AppError(
@@ -62,5 +68,14 @@ class ClaudeUsageProviderFetcher: UsageProviderFetcher {
             message: "Missing credentials for profile '\(profile.name)'",
             isRecoverable: false
         )
+    }
+
+    /// Supplements overage/credit grant data for CLI OAuth paths that can't fetch it themselves.
+    /// Only called from CLI OAuth branches — never from the session key path (which handles it internally).
+    private func supplementOverageIfNeeded(_ usage: inout ClaudeUsage, profile: Profile) async {
+        guard profile.checkOverageLimitEnabled,
+              let sessionKey = profile.claudeSessionKey,
+              let orgId = profile.organizationId else { return }
+        await apiService.supplementOverageData(&usage, sessionKey: sessionKey, organizationId: orgId)
     }
 }

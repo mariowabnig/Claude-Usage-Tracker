@@ -74,18 +74,18 @@ enum ClaudeUsageSnapshotAdapter {
                 usedPercentage: usedPercentage,
                 accentStyle: .warning
             ))
+        }
 
-            // Overage credit grant balance
-            if let balance = usage.overageBalance, let balanceCurrency = usage.overageBalanceCurrency {
-                cards.append(ProviderSupplementaryCard(
-                    id: "claude-overage-balance",
-                    kind: .keyValue(
-                        label: "popover.overage_balance".localized,
-                        value: String(format: "%.2f %@", balance / 100.0, balanceCurrency.uppercased()),
-                        valueColor: .adaptiveGreen
-                    )
-                ))
-            }
+        // Credit grant balance (gifted or purchased — shown independently)
+        if let balance = usage.overageBalance, let balanceCurrency = usage.overageBalanceCurrency {
+            cards.append(ProviderSupplementaryCard(
+                id: "claude-overage-balance",
+                kind: .keyValue(
+                    label: "popover.overage_balance".localized,
+                    value: String(format: "%.2f %@", balance / 100.0, balanceCurrency.uppercased()),
+                    valueColor: .adaptiveGreen
+                )
+            ))
         }
 
         // API Usage card

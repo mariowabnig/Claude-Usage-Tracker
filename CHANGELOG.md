@@ -5,6 +5,14 @@ All notable changes to Claude Usage Tracker will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.1.7] - 2026-04-04
+
+### Fixed
+
+- **Credit balance not displayed**: Gifted and purchased API credit balances now show independently in the popover, no longer gated behind the spend-limit conditional
+- **CLI OAuth missing overage data**: CLI OAuth auth paths now supplement overage and credit grant data via session key when available
+- **Copilot test failures**: Fixed `testCopilotDisplayName` expectation and removed singleton dependency from `testHasUsageCredentialsCopilot_withoutToken`
+
 ## [3.1.6] - 2026-04-03
 
 ### Performance
