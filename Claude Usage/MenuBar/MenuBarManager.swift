@@ -247,6 +247,45 @@ class MenuBarManager: NSObject, ObservableObject {
             self?.switchToNextProfile()
         }
         shortcutManager.startListening()
+
+        // Command palette action observers
+        setupCommandPaletteObservers()
+    }
+
+    private func setupCommandPaletteObservers() {
+        NotificationCenter.default.addObserver(forName: .commandPaletteRefresh, object: nil, queue: .main) { [weak self] _ in
+            self?.refreshUsage()
+        }
+        NotificationCenter.default.addObserver(forName: .commandPaletteForceRefreshAll, object: nil, queue: .main) { [weak self] _ in
+            self?.refreshUsage()
+        }
+        NotificationCenter.default.addObserver(forName: .commandPaletteCopyUsage, object: nil, queue: .main) { [weak self] _ in
+            self?.copyUsageToClipboard()
+        }
+        NotificationCenter.default.addObserver(forName: .commandPaletteDetachPopover, object: nil, queue: .main) { [weak self] _ in
+            guard let self = self, let popover = self.popover, popover.isShown else { return }
+            popover.performClose(nil)
+            // Post detach event that the popover handles
+        }
+        NotificationCenter.default.addObserver(forName: .commandPaletteShowFeedback, object: nil, queue: .main) { [weak self] _ in
+            self?.showFeedbackPrompt()
+        }
+    }
+
+    private func copyUsageToClipboard() {
+        var lines: [String] = []
+        if let profile = profileManager.activeProfile {
+            lines.append("Profile: \(profile.name)")
+        }
+        lines.append("Session: \(usage.sessionPercentage)%")
+        lines.append("Weekly: \(usage.weeklyPercentage)%")
+        if let api = apiUsage {
+            lines.append("API Credits: \(api.formattedUsed) / \(api.formattedTotal)")
+        }
+        let text = lines.joined(separator: "\n")
+        let pasteboard = NSPasteboard.general
+        pasteboard.clearContents()
+        pasteboard.setString(text, forType: .string)
     }
 
     func cleanup() {

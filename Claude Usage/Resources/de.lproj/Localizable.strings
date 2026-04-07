@@ -973,3 +973,30 @@
 "peak.trend.less" = "↓ %d%% weniger als letzte Woche";
 "peak.tooltip.peak_active" = "Stoßzeiten aktiv — endet %@";
 "peak.tooltip.usage" = "%@: %d%% genutzt";
+
+/* ==================== */
+/* MARK: - Command Palette */
+/* ==================== */
+"command_palette.placeholder" = "Befehle suchen…";
+"command_palette.no_results" = "Keine passenden Befehle";
+"command_palette.back" = "Zurück";
+"command_palette.hint_enter" = "auswählen";
+"command_palette.category.actions" = "Aktionen";
+"command_palette.category.profiles" = "Profile";
+"command_palette.category.settings" = "Einstellungen";
+"command_palette.category.window" = "Fenster";
+"command_palette.category.updates" = "Updates";
+"command_palette.refresh_now" = "Jetzt aktualisieren";
+"command_palette.force_refresh_all" = "Alle Profile aktualisieren";
+"command_palette.copy_usage" = "Nutzung in Zwischenablage kopieren";
+"command_palette.switch_profile" = "Aktives Profil wechseln";
+"command_palette.create_profile" = "Profil erstellen";
+"command_palette.edit_profile" = "Profil bearbeiten";
+"command_palette.icon_style" = "Icon-Stil ändern";
+"command_palette.color_mode" = "Farbmodus ändern";
+"command_palette.switch_language" = "Sprache wechseln";
+"command_palette.open_settings" = "Einstellungen öffnen";
+"command_palette.close_settings" = "Einstellungen schließen";
+"command_palette.detach_popover" = "Popover lösen";
+"command_palette.open_feedback" = "Feedback-Fenster öffnen";
+"command_palette.check_updates" = "Nach Updates suchen";

@@ -223,6 +223,7 @@ struct TrafficLightButton: View {
 /// Professional, native macOS Settings interface with multi-profile support
 struct SettingsView: View {
     @State private var selectedSection: SettingsSection = .appearance
+    @State private var showCommandPalette = false
     @StateObject private var profileManager = ProfileManager.shared
     @Environment(\.colorScheme) private var colorScheme
 
@@ -311,6 +312,20 @@ struct SettingsView: View {
         }
         .frame(minWidth: 720, maxWidth: 720, maxHeight: .infinity)
         .background(SettingsBackground())
+        .sheet(isPresented: $showCommandPalette) {
+            CommandPaletteView(isPresented: $showCommandPalette)
+        }
+        .background(
+            Button("") { showCommandPalette.toggle() }
+                .keyboardShortcut("k", modifiers: .command)
+                .hidden()
+        )
+        .onReceive(NotificationCenter.default.publisher(for: .commandPaletteNavigateSettings)) { notification in
+            if let section = notification.object as? SettingsSection {
+                selectedSection = section
+            }
+            showCommandPalette = false
+        }
     }
 }
 

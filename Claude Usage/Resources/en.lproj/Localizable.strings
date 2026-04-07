@@ -979,3 +979,30 @@
 "peak.trend.less" = "↓ %d%% less than last week";
 "peak.tooltip.peak_active" = "Peak Hours active — ends %@";
 "peak.tooltip.usage" = "%@: %d%% used";
+
+/* ==================== */
+/* MARK: - Command Palette */
+/* ==================== */
+"command_palette.placeholder" = "Search commands…";
+"command_palette.no_results" = "No matching commands";
+"command_palette.back" = "Back";
+"command_palette.hint_enter" = "select";
+"command_palette.category.actions" = "Actions";
+"command_palette.category.profiles" = "Profiles";
+"command_palette.category.settings" = "Settings";
+"command_palette.category.window" = "Window";
+"command_palette.category.updates" = "Updates";
+"command_palette.refresh_now" = "Refresh Now";
+"command_palette.force_refresh_all" = "Force Refresh All Profiles";
+"command_palette.copy_usage" = "Copy Usage to Clipboard";
+"command_palette.switch_profile" = "Switch Active Profile";
+"command_palette.create_profile" = "Create Profile";
+"command_palette.edit_profile" = "Edit Profile";
+"command_palette.icon_style" = "Toggle Icon Style";
+"command_palette.color_mode" = "Toggle Color Mode";
+"command_palette.switch_language" = "Switch Language";
+"command_palette.open_settings" = "Open Settings";
+"command_palette.close_settings" = "Close Settings";
+"command_palette.detach_popover" = "Detach Popover";
+"command_palette.open_feedback" = "Open Feedback Window";
+"command_palette.check_updates" = "Check for Updates";

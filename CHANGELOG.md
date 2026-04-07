@@ -5,7 +5,19 @@ All notable changes to Claude Usage Tracker will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [3.1.7] - 2026-04-04
+## [3.1.8] - 2026-04-07
+
+### Added
+
+- **Command palette** (`CommandPaletteView.swift`, `PaletteCommand.swift`): Native SwiftUI command palette triggered by `⌘K`. Supports fuzzy search, frecency-based ranking (`@MainActor FrecencyTracker`), and actions for refresh, force-refresh all, copy usage, detach popover, and feedback. Commands wired to `MenuBarManager` via `NotificationCenter` observers (`setupCommandPaletteObservers`).
+- **i18n strings** (`en.lproj`, `de.lproj`): Added localised strings for all command palette labels and placeholder text.
+- **Settings toggle** (`SettingsView.swift`): Added toggle to enable/disable command palette from Settings.
+
+### Fixed
+
+- **Thread safety**: `FrecencyTracker` marked `@MainActor` to ensure all frecency reads/writes occur on the main thread, preventing data races.
+
+
 
 ### Fixed
 
