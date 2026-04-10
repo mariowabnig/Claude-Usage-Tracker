@@ -12,8 +12,21 @@ import Security
 class ClaudeCodeSyncService {
     static let shared = ClaudeCodeSyncService()
 
-    /// Cached resolved keychain service name (cleared per app session)
+    /// Cached resolved keychain service name (in-memory, cleared per app session)
     private var resolvedServiceName: String?
+
+    /// UserDefaults key for persisting the last successfully resolved hashed service name
+    /// so we don't re-run the expensive `security dump-keychain` on every launch.
+    private static let persistedServiceNameKey = "ClaudeCodeSyncService.resolvedServiceName"
+
+    /// UserDefaults key marking that hashed-name discovery has already been attempted
+    /// once on this machine. When set, we avoid `security dump-keychain` on launch.
+    private static let discoveryAttemptedKey = "ClaudeCodeSyncService.discoveryAttempted"
+
+    /// Timeout for blocking `/usr/bin/security` invocations. macOS 26.3.x has been
+    /// observed to hang indefinitely on `security` subprocesses in some environments
+    /// (see issue #179), so every shell-out is bounded to avoid deadlocking launch.
+    private static let securityCommandTimeout: TimeInterval = 3.0
 
     private init() {}
 
@@ -88,41 +101,97 @@ class ClaudeCodeSyncService {
         return nil
     }
 
-    /// Reads Claude Code credentials from system Keychain using security command
-    private func readKeychainCredentials() throws -> String? {
-        let serviceName = resolveServiceName()
+    /// Result of a bounded `/usr/bin/security` invocation.
+    private struct SecurityCommandResult {
+        let exitCode: Int32
+        let stdout: String
+        let stderr: String
+        let timedOut: Bool
+    }
+
+    /// Runs `/usr/bin/security` with the given arguments and a hard timeout.
+    /// If the timeout elapses, the subprocess is terminated and `timedOut` is true.
+    /// This is critical: without the timeout, a hung `security` call blocks the
+    /// calling thread (and, if called from main, the whole app) indefinitely.
+    private func runSecurityCommand(
+        arguments: [String],
+        timeout: TimeInterval = ClaudeCodeSyncService.securityCommandTimeout
+    ) -> SecurityCommandResult? {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/security")
-        process.arguments = [
-            "find-generic-password",
-            "-s", serviceName,
-            "-a", NSUserName(),
-            "-w"  // Print password only
-        ]
+        process.arguments = arguments
 
         let outputPipe = Pipe()
         let errorPipe = Pipe()
         process.standardOutput = outputPipe
         process.standardError = errorPipe
 
-        try process.run()
-        process.waitUntilExit()
+        do {
+            try process.run()
+        } catch {
+            LoggingService.shared.log("runSecurityCommand: failed to launch security: \(error.localizedDescription)")
+            return nil
+        }
 
-        let exitCode = process.terminationStatus
+        // Wait for the process with a hard deadline. DispatchGroup lets us block
+        // the current thread up to `timeout` seconds, then terminate if still running.
+        let group = DispatchGroup()
+        group.enter()
+        DispatchQueue.global(qos: .userInitiated).async {
+            process.waitUntilExit()
+            group.leave()
+        }
+
+        let waitResult = group.wait(timeout: .now() + timeout)
+        if waitResult == .timedOut {
+            LoggingService.shared.log("runSecurityCommand: TIMEOUT after \(timeout)s, terminating security subprocess (args: \(arguments.prefix(2).joined(separator: " ")))")
+            process.terminate()
+            // Give it a brief moment to die, then force-kill if needed
+            _ = group.wait(timeout: .now() + 0.5)
+            if process.isRunning {
+                kill(process.processIdentifier, SIGKILL)
+            }
+            return SecurityCommandResult(exitCode: -1, stdout: "", stderr: "timeout", timedOut: true)
+        }
+
+        let stdoutData = outputPipe.fileHandleForReading.readDataToEndOfFile()
+        let stderrData = errorPipe.fileHandleForReading.readDataToEndOfFile()
+        return SecurityCommandResult(
+            exitCode: process.terminationStatus,
+            stdout: String(data: stdoutData, encoding: .utf8) ?? "",
+            stderr: String(data: stderrData, encoding: .utf8) ?? "",
+            timedOut: false
+        )
+    }
+
+    /// Reads Claude Code credentials from system Keychain using security command
+    private func readKeychainCredentials() throws -> String? {
+        let serviceName = resolveServiceName()
+        guard let result = runSecurityCommand(arguments: [
+            "find-generic-password",
+            "-s", serviceName,
+            "-a", NSUserName(),
+            "-w"  // Print password only
+        ]) else {
+            // Failed to launch security — treat as "no credentials"
+            return nil
+        }
+
+        if result.timedOut {
+            LoggingService.shared.log("readKeychainCredentials: security command timed out")
+            return nil
+        }
+
+        let exitCode = result.exitCode
 
         if exitCode == 0 {
-            let outputData = outputPipe.fileHandleForReading.readDataToEndOfFile()
-            guard let value = String(data: outputData, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines) else {
-                return nil
-            }
-            return value
+            let value = result.stdout.trimmingCharacters(in: .whitespacesAndNewlines)
+            return value.isEmpty ? nil : value
         } else if exitCode == 44 {
             // Exit code 44 = item not found
             return nil
         } else {
-            let errorData = errorPipe.fileHandleForReading.readDataToEndOfFile()
-            let errorString = String(data: errorData, encoding: .utf8) ?? "Unknown error"
-            LoggingService.shared.log("Failed to read keychain: \(errorString)")
+            LoggingService.shared.log("Failed to read keychain: \(result.stderr)")
             throw ClaudeCodeError.keychainReadFailed(status: OSStatus(exitCode))
         }
     }
@@ -143,22 +212,54 @@ class ClaudeCodeSyncService {
     private static let legacyServiceName = "Claude Code-credentials"
 
     /// Resolves the correct keychain service name for Claude Code credentials.
-    /// Claude Code v2.1.52+ changed from "Claude Code-credentials" to "Claude Code-credentials-HASH".
-    /// Tries legacy name first, then falls back to prefix search.
+    /// Claude Code v2.1.52+ changed from "Claude Code-credentials" to
+    /// "Claude Code-credentials-HASH".
+    ///
+    /// Resolution order (each step is bounded by `securityCommandTimeout`):
+    /// 1. In-memory cache
+    /// 2. UserDefaults-persisted name from a previous successful resolution
+    /// 3. Legacy name probe (`find-generic-password`)
+    /// 4. Hashed-name discovery (`dump-keychain`) — only if discovery has not
+    ///    been attempted before OR the caller explicitly forced a retry
+    ///
+    /// Important: `security dump-keychain` is the call most prone to hanging
+    /// on macOS 26.3.x (see #179), so we persist a "discovery attempted" flag
+    /// and never re-run it on subsequent launches unless the cache is invalidated.
     private func resolveServiceName() -> String {
         if let cached = resolvedServiceName {
             return cached
         }
 
-        // Try legacy name first (fast path)
+        // Honor any previously persisted resolution — this avoids the expensive
+        // `dump-keychain` shell-out on every launch after the first.
+        if let persisted = UserDefaults.standard.string(forKey: Self.persistedServiceNameKey),
+           !persisted.isEmpty {
+            resolvedServiceName = persisted
+            return persisted
+        }
+
+        // Try legacy name first (fast path, bounded by timeout)
         if keychainItemExists(serviceName: Self.legacyServiceName) {
+            persistResolvedServiceName(Self.legacyServiceName)
+            return Self.legacyServiceName
+        }
+
+        // Only run the (potentially slow/hanging) hashed-name discovery ONCE
+        // per machine. If we've already tried and failed, default to the legacy
+        // name and let downstream callers handle the "no credentials" case.
+        let defaults = UserDefaults.standard
+        if defaults.bool(forKey: Self.discoveryAttemptedKey) {
             resolvedServiceName = Self.legacyServiceName
             return Self.legacyServiceName
         }
 
-        // Fall back to searching for "Claude Code-credentials-" prefix
+        // First-time discovery attempt — mark as attempted BEFORE running so that
+        // even if the command hangs and gets force-terminated by the timeout,
+        // we won't retry it on the next launch.
+        defaults.set(true, forKey: Self.discoveryAttemptedKey)
+
         if let hashedName = findHashedServiceName() {
-            resolvedServiceName = hashedName
+            persistResolvedServiceName(hashedName)
             LoggingService.shared.log("Resolved hashed keychain service name: \(hashedName)")
             return hashedName
         }
@@ -168,41 +269,46 @@ class ClaudeCodeSyncService {
         return Self.legacyServiceName
     }
 
-    /// Checks if a keychain item exists with the given service name
-    private func keychainItemExists(serviceName: String) -> Bool {
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/security")
-        process.arguments = ["find-generic-password", "-s", serviceName, "-a", NSUserName()]
-        process.standardOutput = Pipe()
-        process.standardError = Pipe()
-        do {
-            try process.run()
-            process.waitUntilExit()
-            return process.terminationStatus == 0
-        } catch {
-            return false
-        }
+    /// Persists a successfully resolved service name to UserDefaults and in-memory cache.
+    private func persistResolvedServiceName(_ name: String) {
+        resolvedServiceName = name
+        UserDefaults.standard.set(name, forKey: Self.persistedServiceNameKey)
     }
 
-    /// Searches the keychain for a hashed service name matching "Claude Code-credentials-*"
-    private func findHashedServiceName() -> String? {
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/security")
-        process.arguments = ["dump-keychain"]
-        let outputPipe = Pipe()
-        process.standardOutput = outputPipe
-        process.standardError = Pipe()
+    /// Checks if a keychain item exists with the given service name, bounded by
+    /// `securityCommandTimeout` so a hung `security` process can't block the caller.
+    private func keychainItemExists(serviceName: String) -> Bool {
+        guard let result = runSecurityCommand(arguments: [
+            "find-generic-password", "-s", serviceName, "-a", NSUserName()
+        ]) else {
+            return false
+        }
+        if result.timedOut {
+            LoggingService.shared.log("keychainItemExists: security command timed out for service '\(serviceName)'")
+            return false
+        }
+        return result.exitCode == 0
+    }
 
-        do {
-            try process.run()
-            process.waitUntilExit()
-        } catch {
+    /// Searches the keychain for a hashed service name matching "Claude Code-credentials-*".
+    /// This uses `security dump-keychain` which can be slow or hang on some macOS
+    /// versions, so it is bounded by a longer timeout and only called once per machine.
+    private func findHashedServiceName() -> String? {
+        // `dump-keychain` enumerates every keychain item and can be slow on large
+        // keychains; give it a slightly more generous budget than other commands
+        // but still a hard ceiling to prevent indefinite hangs.
+        guard let result = runSecurityCommand(arguments: ["dump-keychain"], timeout: 5.0) else {
             return nil
         }
 
-        guard process.terminationStatus == 0 else { return nil }
+        if result.timedOut {
+            LoggingService.shared.log("findHashedServiceName: `security dump-keychain` timed out — falling back to legacy name")
+            return nil
+        }
 
-        let output = String(data: outputPipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
+        guard result.exitCode == 0 else { return nil }
+
+        let output = result.stdout
         let prefix = "Claude Code-credentials-"
 
         // Parse service names from dump-keychain output (format: "svce"<blob>="ServiceName")
@@ -220,63 +326,59 @@ class ClaudeCodeSyncService {
         return nil
     }
 
-    /// Invalidates the cached service name, forcing re-discovery on next access
+    /// Invalidates the cached service name, forcing re-discovery on next access.
+    /// This also clears the persisted resolution and the discovery-attempted flag
+    /// so a subsequent call will re-run the full resolution chain.
     func invalidateServiceNameCache() {
         resolvedServiceName = nil
+        let defaults = UserDefaults.standard
+        defaults.removeObject(forKey: Self.persistedServiceNameKey)
+        defaults.removeObject(forKey: Self.discoveryAttemptedKey)
     }
 
-    /// Writes Claude Code credentials to system Keychain using security command
+    /// Writes Claude Code credentials to system Keychain using security command.
+    /// Every subprocess invocation is bounded by `securityCommandTimeout` so a
+    /// hung `security` process cannot block the caller indefinitely.
     func writeSystemCredentials(_ jsonData: String) throws {
         let serviceName = resolveServiceName()
         LoggingService.shared.log("Writing credentials to keychain using security command (service: \(serviceName))")
 
-        // First, delete existing item
-        let deleteProcess = Process()
-        deleteProcess.executableURL = URL(fileURLWithPath: "/usr/bin/security")
-        deleteProcess.arguments = [
+        // First, delete existing item (best-effort; ignore failures)
+        if let deleteResult = runSecurityCommand(arguments: [
             "delete-generic-password",
             "-s", serviceName,
             "-a", NSUserName()
-        ]
-
-        try deleteProcess.run()
-        deleteProcess.waitUntilExit()
-
-        let deleteExitCode = deleteProcess.terminationStatus
-        if deleteExitCode == 0 {
-            LoggingService.shared.log("Deleted existing keychain item")
-        } else {
-            LoggingService.shared.log("No existing keychain item to delete (or delete failed with code \(deleteExitCode))")
+        ]) {
+            if deleteResult.timedOut {
+                LoggingService.shared.log("writeSystemCredentials: delete step timed out, proceeding with add")
+            } else if deleteResult.exitCode == 0 {
+                LoggingService.shared.log("Deleted existing keychain item")
+            } else {
+                LoggingService.shared.log("No existing keychain item to delete (or delete failed with code \(deleteResult.exitCode))")
+            }
         }
 
         // Add new item using security command
-        let addProcess = Process()
-        addProcess.executableURL = URL(fileURLWithPath: "/usr/bin/security")
-        addProcess.arguments = [
+        guard let addResult = runSecurityCommand(arguments: [
             "add-generic-password",
             "-s", serviceName,
             "-a", NSUserName(),
             "-w", jsonData,
             "-U"  // Update if exists
-        ]
+        ]) else {
+            throw ClaudeCodeError.keychainWriteFailed(status: -1)
+        }
 
-        let outputPipe = Pipe()
-        let errorPipe = Pipe()
-        addProcess.standardOutput = outputPipe
-        addProcess.standardError = errorPipe
+        if addResult.timedOut {
+            LoggingService.shared.log("❌ writeSystemCredentials: add step timed out")
+            throw ClaudeCodeError.keychainWriteFailed(status: -1)
+        }
 
-        try addProcess.run()
-        addProcess.waitUntilExit()
-
-        let exitCode = addProcess.terminationStatus
-
-        if exitCode == 0 {
+        if addResult.exitCode == 0 {
             LoggingService.shared.log("✅ Added Claude Code system credentials successfully using security command")
         } else {
-            let errorData = errorPipe.fileHandleForReading.readDataToEndOfFile()
-            let errorString = String(data: errorData, encoding: .utf8) ?? "Unknown error"
-            LoggingService.shared.log("❌ Failed to add credentials: \(errorString)")
-            throw ClaudeCodeError.keychainWriteFailed(status: OSStatus(exitCode))
+            LoggingService.shared.log("❌ Failed to add credentials: \(addResult.stderr)")
+            throw ClaudeCodeError.keychainWriteFailed(status: OSStatus(addResult.exitCode))
         }
     }
 
