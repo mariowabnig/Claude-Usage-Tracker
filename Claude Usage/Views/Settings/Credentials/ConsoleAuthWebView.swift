@@ -24,14 +24,27 @@ struct ConsoleAuthWebView: NSViewRepresentable {
 
     func makeNSView(context: Context) -> WKWebView {
         let config = WKWebViewConfiguration()
-        config.websiteDataStore = .nonPersistent()
-        config.preferences.javaScriptCanOpenWindowsAutomatically = false
+        config.websiteDataStore = .default()
+        config.preferences.javaScriptCanOpenWindowsAutomatically = true
 
         let webView = WKWebView(frame: .zero, configuration: config)
         webView.navigationDelegate = context.coordinator
         webView.uiDelegate = context.coordinator
+        context.coordinator.startObservingCookies(for: config.websiteDataStore)
 
-        webView.load(URLRequest(url: loginURL))
+        // Clear auth cookies to prevent auto-login with stale session.
+        // Google cookies are preserved so SSO popup works.
+        let cookieStore = config.websiteDataStore.httpCookieStore
+        cookieStore.getAllCookies { cookies in
+            let group = DispatchGroup()
+            for cookie in cookies where cookie.domain.contains("claude") || cookie.domain.contains("anthropic") {
+                group.enter()
+                cookieStore.delete(cookie) { group.leave() }
+            }
+            group.notify(queue: .main) {
+                webView.load(URLRequest(url: self.loginURL))
+            }
+        }
 
         return webView
     }
@@ -42,12 +55,15 @@ struct ConsoleAuthWebView: NSViewRepresentable {
         Coordinator(cookieDomain: cookieDomain, onCookieFound: onCookieFound)
     }
 
-    class Coordinator: NSObject, WKNavigationDelegate, WKUIDelegate {
+    class Coordinator: NSObject, WKNavigationDelegate, WKUIDelegate, WKHTTPCookieStoreObserver {
         let cookieDomain: String
         let onCookieFound: (ConsoleCookieResult) -> Void
         private var foundCookie = false
         private var pollTimer: Timer?
         private weak var activeWebView: WKWebView?
+        private var observedCookieStore: WKHTTPCookieStore?
+        private var popupWindow: NSWindow?
+        private var popupWebView: WKWebView?
 
         init(cookieDomain: String, onCookieFound: @escaping (ConsoleCookieResult) -> Void) {
             self.cookieDomain = cookieDomain
@@ -56,6 +72,28 @@ struct ConsoleAuthWebView: NSViewRepresentable {
 
         deinit {
             pollTimer?.invalidate()
+            observedCookieStore?.remove(self)
+        }
+
+        func startObservingCookies(for dataStore: WKWebsiteDataStore) {
+            let cookieStore = dataStore.httpCookieStore
+            observedCookieStore?.remove(self)
+            observedCookieStore = cookieStore
+            cookieStore.add(self)
+        }
+
+        // WKHTTPCookieStoreObserver — fires whenever any cookie changes
+        func cookiesDidChange(in cookieStore: WKHTTPCookieStore) {
+            guard !foundCookie else { return }
+            cookieStore.getAllCookies { [weak self] cookies in
+                guard let self = self, !self.foundCookie else { return }
+                for cookie in cookies {
+                    if cookie.name == "sessionKey" && cookie.domain.contains(self.cookieDomain) {
+                        self.completeAuthentication(with: cookie)
+                        return
+                    }
+                }
+            }
         }
 
         func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
@@ -71,13 +109,41 @@ struct ConsoleAuthWebView: NSViewRepresentable {
             for navigationAction: WKNavigationAction,
             windowFeatures: WKWindowFeatures
         ) -> WKWebView? {
-            // Handle auth-related popups (e.g. Google SSO) by loading in same webview
-            if let url = navigationAction.request.url,
-               let host = url.host,
-               ["claude.ai", "console.anthropic.com", "accounts.anthropic.com", "accounts.google.com"].contains(where: { host.hasSuffix($0) }) {
-                webView.load(URLRequest(url: url))
+            // Create a real popup WKWebView using the provided configuration
+            // (preserves window.opener linkage and shared cookies for Google SSO)
+            startObservingCookies(for: configuration.websiteDataStore)
+
+            let popup = WKWebView(
+                frame: CGRect(x: 0, y: 0, width: 500, height: 600),
+                configuration: configuration
+            )
+            popup.navigationDelegate = self
+            popup.uiDelegate = self
+
+            let panel = NSPanel(
+                contentRect: CGRect(x: 0, y: 0, width: 500, height: 600),
+                styleMask: [.titled, .closable, .resizable],
+                backing: .buffered,
+                defer: false
+            )
+            panel.contentView = popup
+            panel.title = "Sign In"
+            panel.center()
+            panel.makeKeyAndOrderFront(nil)
+
+            self.popupWindow = panel
+            self.popupWebView = popup
+
+            return popup
+        }
+
+        // Handle window.close() from Google SSO popup after auth completes
+        func webViewDidClose(_ webView: WKWebView) {
+            if webView === popupWebView {
+                popupWindow?.close()
+                popupWindow = nil
+                popupWebView = nil
             }
-            return nil
         }
 
         /// Polls cookies every 1.5s to catch SPA-based logins that don't trigger didFinish.
@@ -99,19 +165,31 @@ struct ConsoleAuthWebView: NSViewRepresentable {
 
                 for cookie in cookies {
                     if cookie.name == "sessionKey" && cookie.domain.contains(self.cookieDomain) {
-                        self.foundCookie = true
-                        self.pollTimer?.invalidate()
-                        self.pollTimer = nil
-                        let result = ConsoleCookieResult(
-                            sessionKey: cookie.value,
-                            expiryDate: cookie.expiresDate
-                        )
-                        DispatchQueue.main.async {
-                            self.onCookieFound(result)
-                        }
+                        self.completeAuthentication(with: cookie)
                         return
                     }
                 }
+            }
+        }
+
+        private func completeAuthentication(with cookie: HTTPCookie) {
+            guard !foundCookie else { return }
+
+            foundCookie = true
+            pollTimer?.invalidate()
+            pollTimer = nil
+
+            popupWindow?.close()
+            popupWindow = nil
+            popupWebView = nil
+
+            let result = ConsoleCookieResult(
+                sessionKey: cookie.value,
+                expiryDate: cookie.expiresDate
+            )
+
+            DispatchQueue.main.async {
+                self.onCookieFound(result)
             }
         }
     }
