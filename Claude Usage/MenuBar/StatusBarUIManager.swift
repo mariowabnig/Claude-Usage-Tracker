@@ -54,6 +54,10 @@ final class StatusBarUIManager {
         return "\(autosavePrefix).multiProfile.\(itemKey.profileId.uuidString).\(itemKey.metricType.rawValue)"
     }
 
+    private static func multiProfilePrimaryKey(for profileId: UUID) -> MultiProfileStatusItemKey {
+        MultiProfileStatusItemKey(profileId: profileId, metricType: .session)
+    }
+
     // MARK: - Initialization
 
     init() {}
@@ -219,7 +223,7 @@ final class StatusBarUIManager {
             multiProfileStatusItems[Self.defaultLogoPlaceholderKey] = statusItem
             LoggingService.shared.logUIEvent("Multi-profile: No profiles selected, showing default logo")
         } else {
-            // Create one status item per selected metric window
+            // Create one status item per selected profile
             for item in selectedItems {
                 let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
                 statusItem.autosaveName = Self.autosaveName(for: item)
@@ -304,7 +308,6 @@ final class StatusBarUIManager {
         config: MultiProfileDisplayConfig
     ) {
         guard isMultiProfileMode else { return }
-        _ = config
 
         let selectedItems = multiProfileItemKeys(for: profiles)
         if selectedItems.isEmpty {
@@ -320,69 +323,257 @@ final class StatusBarUIManager {
         }
 
         for profile in profiles where profile.isSelectedForDisplay {
-            for metricConfig in multiProfileMetricConfigs(for: profile) {
-                let itemKey = MultiProfileStatusItemKey(profileId: profile.id, metricType: metricConfig.metricType)
-                guard let statusItem = multiProfileStatusItems[itemKey],
-                      let button = statusItem.button else {
-                    continue
-                }
-
-                let menuBarIsDark = button.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
-
-                guard let snapshot = snapshots[profile.id],
-                      let usage = syntheticUsage(for: snapshot, preferredMetric: metricConfig.metricType),
-                      let metricRow = row(for: metricConfig.metricType, in: snapshot, provider: profile.providerKind) else {
-                    let logoImage = renderer.createDefaultAppLogo(isDarkMode: menuBarIsDark)
-                    logoImage.isTemplate = true
-                    setButtonImage(button, image: logoImage)
-                    button.toolTip = profile.name
-                    continue
-                }
-
-                let image = renderer.createImage(
-                    for: metricConfig.metricType,
-                    config: metricConfig,
-                    globalConfig: profile.iconConfig,
-                    usage: usage,
-                    apiUsage: nil,
-                    isDarkMode: menuBarIsDark,
-                    colorMode: profile.iconConfig.colorMode,
-                    singleColorHex: profile.iconConfig.singleColorHex,
-                    showIconName: profile.iconConfig.showIconNames,
-                    showNextSessionTime: metricConfig.showNextSessionTime,
-                    profilePrefix: profile.providerKind.menuBarPrefix,
-                    showPeakEffects: profile.providerKind == .claude
-                )
-
-                image.isTemplate = profile.iconConfig.colorMode == .monochrome && !profile.iconConfig.showPaceMarker
-                setButtonImage(button, image: image)
-                button.toolTip = tooltip(for: profile, primaryRow: metricRow, secondaryRow: nil, styleConfig: metricConfig)
+            let itemKey = Self.multiProfilePrimaryKey(for: profile.id)
+            guard let statusItem = multiProfileStatusItems[itemKey],
+                  let button = statusItem.button else {
+                continue
             }
+
+            let menuBarIsDark = button.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+
+            guard let snapshot = snapshots[profile.id],
+                  let renderState = multiProfileRenderState(for: profile, snapshot: snapshot, config: config) else {
+                let logoImage = renderer.createDefaultAppLogo(isDarkMode: menuBarIsDark)
+                logoImage.isTemplate = true
+                setButtonImage(button, image: logoImage)
+                button.toolTip = profile.name
+                continue
+            }
+
+            let image = multiProfileImage(
+                for: profile,
+                config: config,
+                renderState: renderState,
+                isDarkMode: menuBarIsDark
+            )
+
+            image.isTemplate = false
+            setButtonImage(button, image: image)
+            button.toolTip = tooltip(
+                for: profile,
+                primaryRow: renderState.primaryRow,
+                secondaryRow: renderState.secondaryRow,
+                styleName: config.iconStyle.displayName
+            )
         }
     }
 
     private func multiProfileItemKeys(for profiles: [Profile]) -> [MultiProfileStatusItemKey] {
         profiles
             .filter { $0.isSelectedForDisplay }
-            .flatMap { profile in
-                multiProfileMetricConfigs(for: profile).map {
-                    MultiProfileStatusItemKey(profileId: profile.id, metricType: $0.metricType)
-                }
+            .map { profile in
+                Self.multiProfilePrimaryKey(for: profile.id)
             }
     }
 
-    private func multiProfileMetricConfigs(for profile: Profile) -> [MetricIconConfig] {
-        let enabledMetrics = profile.iconConfig.enabledMetrics.filter { $0.metricType != .api }
+    private struct MultiProfileRenderState {
+        let primaryRow: ProviderMetricRow
+        let secondaryRow: ProviderMetricRow?
+        let primaryPercentage: Double
+        let secondaryPercentage: Double?
+        let primaryStatus: UsageStatusLevel
+        let secondaryStatus: UsageStatusLevel
+        let primaryTimeMarker: CGFloat?
+        let secondaryTimeMarker: CGFloat?
+        let primaryPaceStatus: PaceStatus?
+        let secondaryPaceStatus: PaceStatus?
+    }
+
+    private func multiProfileRenderState(
+        for profile: Profile,
+        snapshot: ProviderUsageSnapshot,
+        config: MultiProfileDisplayConfig
+    ) -> MultiProfileRenderState? {
+        let primaryRow: ProviderMetricRow?
+        let secondaryCandidate: ProviderMetricRow?
 
         switch profile.providerKind {
         case .claude, .codex:
-            return enabledMetrics.filter { $0.metricType == .session || $0.metricType == .week }
+            primaryRow = row(for: .session, in: snapshot, provider: profile.providerKind)
+            secondaryCandidate = config.showWeek
+                ? row(for: .week, in: snapshot, provider: profile.providerKind)
+                : nil
         case .copilot:
-            if let monthlyConfig = enabledMetrics.first(where: { $0.metricType == .week }) {
-                return [monthlyConfig]
-            }
-            return []
+            primaryRow = row(for: .week, in: snapshot, provider: profile.providerKind)
+            secondaryCandidate = nil
         }
+
+        guard let primaryRow,
+              let primaryUsed = primaryRow.usedPercentage else {
+            return nil
+        }
+
+        let secondaryRow = secondaryCandidate.flatMap { candidate -> ProviderMetricRow? in
+            guard config.showWeek,
+                  candidate.id != primaryRow.id,
+                  candidate.usedPercentage != nil else {
+                return nil
+            }
+            return candidate
+        }
+
+        let primaryPercentage = clampedPercentage(primaryUsed)
+        let secondaryPercentage = secondaryRow.map { clampedPercentage($0.usedPercentage ?? 0) }
+        let primaryStatus = statusLevel(for: primaryRow, usePaceColoring: config.usePaceColoring)
+        let secondaryStatus = secondaryRow.map { statusLevel(for: $0, usePaceColoring: config.usePaceColoring) } ?? .safe
+
+        let primaryElapsed = elapsedFraction(for: primaryRow, enabled: true)
+        let secondaryElapsed = secondaryRow.flatMap { elapsedFraction(for: $0, enabled: true) }
+
+        let primaryTimeMarker = config.showTimeMarker ? primaryElapsed.map { CGFloat($0) } : nil
+        let secondaryTimeMarker = config.showWeek ? secondaryElapsed.map { CGFloat($0) } : nil
+
+        let primaryPaceStatus = paceStatus(for: primaryRow, showPaceMarker: config.showPaceMarker)
+        let secondaryPaceStatus = config.showWeek
+            ? secondaryRow.flatMap { paceStatus(for: $0, showPaceMarker: config.showPaceMarker) }
+            : nil
+
+        return MultiProfileRenderState(
+            primaryRow: primaryRow,
+            secondaryRow: secondaryRow,
+            primaryPercentage: primaryPercentage,
+            secondaryPercentage: secondaryPercentage,
+            primaryStatus: primaryStatus,
+            secondaryStatus: secondaryStatus,
+            primaryTimeMarker: primaryTimeMarker,
+            secondaryTimeMarker: secondaryTimeMarker,
+            primaryPaceStatus: primaryPaceStatus,
+            secondaryPaceStatus: secondaryPaceStatus
+        )
+    }
+
+    private func multiProfileImage(
+        for profile: Profile,
+        config: MultiProfileDisplayConfig,
+        renderState: MultiProfileRenderState,
+        isDarkMode: Bool
+    ) -> NSImage {
+        let showLabel = config.showProfileLabel
+        let profileLabel = showLabel ? profile.name : nil
+        let profileInitial = String(profile.name.prefix(1)).uppercased()
+
+        switch config.iconStyle {
+        case .concentric:
+            let secondaryPercentage = config.showWeek ? (renderState.secondaryPercentage ?? 0) : 0
+            let secondaryStatus = config.showWeek ? renderState.secondaryStatus : .safe
+
+            if let profileLabel {
+                return renderer.createConcentricIconWithLabel(
+                    sessionPercentage: renderState.primaryPercentage,
+                    weekPercentage: secondaryPercentage,
+                    sessionStatus: renderState.primaryStatus,
+                    weekStatus: secondaryStatus,
+                    profileName: profileLabel,
+                    monochromeMode: false,
+                    isDarkMode: isDarkMode,
+                    useSystemColor: config.useSystemColor,
+                    sessionTimeMarker: renderState.primaryTimeMarker,
+                    weekTimeMarker: config.showWeek ? renderState.secondaryTimeMarker : nil,
+                    sessionPaceStatus: renderState.primaryPaceStatus,
+                    weekPaceStatus: config.showWeek ? renderState.secondaryPaceStatus : nil,
+                    showPaceMarker: config.showPaceMarker
+                )
+            }
+
+            return renderer.createConcentricIcon(
+                sessionPercentage: renderState.primaryPercentage,
+                weekPercentage: secondaryPercentage,
+                sessionStatus: renderState.primaryStatus,
+                weekStatus: secondaryStatus,
+                profileInitial: profileInitial,
+                monochromeMode: false,
+                isDarkMode: isDarkMode,
+                useSystemColor: config.useSystemColor,
+                sessionTimeMarker: renderState.primaryTimeMarker,
+                weekTimeMarker: config.showWeek ? renderState.secondaryTimeMarker : nil,
+                sessionPaceStatus: renderState.primaryPaceStatus,
+                weekPaceStatus: config.showWeek ? renderState.secondaryPaceStatus : nil,
+                showPaceMarker: config.showPaceMarker
+            )
+
+        case .progressBar:
+            return renderer.createMultiProfileProgressBar(
+                sessionPercentage: renderState.primaryPercentage,
+                weekPercentage: config.showWeek ? renderState.secondaryPercentage : nil,
+                sessionStatus: renderState.primaryStatus,
+                weekStatus: renderState.secondaryStatus,
+                profileName: profileLabel,
+                monochromeMode: false,
+                isDarkMode: isDarkMode,
+                useSystemColor: config.useSystemColor,
+                sessionTimeMarker: renderState.primaryTimeMarker,
+                weekTimeMarker: config.showWeek ? renderState.secondaryTimeMarker : nil,
+                sessionPaceStatus: renderState.primaryPaceStatus,
+                weekPaceStatus: config.showWeek ? renderState.secondaryPaceStatus : nil,
+                showPaceMarker: config.showPaceMarker
+            )
+
+        case .compact:
+            return renderer.createCompactDot(
+                percentage: renderState.primaryPercentage,
+                status: renderState.primaryStatus,
+                profileInitial: showLabel ? profileInitial : nil,
+                monochromeMode: false,
+                isDarkMode: isDarkMode,
+                useSystemColor: config.useSystemColor,
+                paceStatus: renderState.primaryPaceStatus,
+                showPaceMarker: config.showPaceMarker
+            )
+
+        case .percentage:
+            return renderer.createMultiProfilePercentage(
+                sessionPercentage: renderState.primaryPercentage,
+                weekPercentage: config.showWeek ? renderState.secondaryPercentage : nil,
+                sessionStatus: renderState.primaryStatus,
+                weekStatus: renderState.secondaryStatus,
+                profileName: profileLabel,
+                monochromeMode: false,
+                isDarkMode: isDarkMode,
+                useSystemColor: config.useSystemColor,
+                sessionPaceStatus: renderState.primaryPaceStatus,
+                weekPaceStatus: config.showWeek ? renderState.secondaryPaceStatus : nil,
+                showPaceMarker: config.showPaceMarker
+            )
+        }
+    }
+
+    private func clampedPercentage(_ percentage: Double) -> Double {
+        max(0, min(percentage, 100))
+    }
+
+    private func elapsedFraction(for row: ProviderMetricRow, enabled: Bool) -> Double? {
+        guard enabled,
+              row.supportsPaceMarkers,
+              let periodDuration = row.periodDuration else {
+            return nil
+        }
+
+        return UsageStatusCalculator.elapsedFraction(
+            resetTime: row.resetTime,
+            duration: periodDuration,
+            showRemaining: false
+        )
+    }
+
+    private func statusLevel(for row: ProviderMetricRow, usePaceColoring: Bool) -> UsageStatusLevel {
+        UsageStatusCalculator.calculateStatus(
+            usedPercentage: clampedPercentage(row.usedPercentage ?? 0),
+            showRemaining: false,
+            elapsedFraction: usePaceColoring ? elapsedFraction(for: row, enabled: true) : nil
+        )
+    }
+
+    private func paceStatus(for row: ProviderMetricRow, showPaceMarker: Bool) -> PaceStatus? {
+        guard showPaceMarker,
+              let usedPercentage = row.usedPercentage,
+              let elapsed = elapsedFraction(for: row, enabled: true) else {
+            return nil
+        }
+
+        return PaceStatus.calculate(
+            usedPercentage: clampedPercentage(usedPercentage),
+            elapsedFraction: elapsed
+        )
     }
 
     private func syntheticUsage(for snapshot: ProviderUsageSnapshot, preferredMetric: MenuBarMetricType) -> ClaudeUsage? {
@@ -475,6 +666,22 @@ final class StatusBarUIManager {
             parts.append(styleConfig.iconStyle.displayName)
         }
 
+        return parts.joined(separator: " • ")
+    }
+
+    private func tooltip(
+        for profile: Profile,
+        primaryRow: ProviderMetricRow,
+        secondaryRow: ProviderMetricRow?,
+        styleName: String
+    ) -> String {
+        var parts = ["\(profile.name) • \(primaryRow.title)"]
+
+        if let secondaryRow {
+            parts.append(secondaryRow.title)
+        }
+
+        parts.append(styleName)
         return parts.joined(separator: " • ")
     }
 
