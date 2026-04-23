@@ -112,7 +112,7 @@ struct CommandPaletteView: View {
         ))
 
         // Settings — Color Mode (drillable)
-        let colorModeChildren = StatuslineColorMode.allCases.map { mode in
+        let colorModeChildren = MenuBarColorMode.allCases.map { mode in
             PaletteCommand(
                 id: "color_mode_\(mode.rawValue)",
                 title: mode.displayName,
@@ -337,13 +337,13 @@ struct CommandPaletteView: View {
             HStack(spacing: 12) {
                 Label("↑↓", systemImage: "arrow.up.arrow.down")
                     .font(.system(size: 10))
-                    .foregroundColor(.tertiaryLabel)
+                    .foregroundColor(Color(nsColor: .tertiaryLabelColor))
                 Label("command_palette.hint_enter".localized, systemImage: "return")
                     .font(.system(size: 10))
-                    .foregroundColor(.tertiaryLabel)
+                    .foregroundColor(Color(nsColor: .tertiaryLabelColor))
                 Label("esc", systemImage: "escape")
                     .font(.system(size: 10))
-                    .foregroundColor(.tertiaryLabel)
+                    .foregroundColor(Color(nsColor: .tertiaryLabelColor))
                 Spacer()
             }
             .padding(.horizontal, 12)
@@ -427,7 +427,7 @@ private struct CommandRow: View {
             if hasDrill {
                 Image(systemName: "chevron.right")
                     .font(.system(size: 10, weight: .medium))
-                    .foregroundColor(isSelected ? .white.opacity(0.7) : .tertiaryLabel)
+                    .foregroundColor(isSelected ? .white.opacity(0.7) : Color(nsColor: .tertiaryLabelColor))
             }
         }
         .padding(.horizontal, 12)

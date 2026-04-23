@@ -674,11 +674,23 @@ class MenuBarManager: NSObject, ObservableObject {
                 config: config
             )
         } else {
-            // Single profile mode - use the standard update
-            statusBarUIManager?.updateAllButtons(
-                usage: usage,
-                apiUsage: apiUsage
-            )
+            guard let activeProfile = profileManager.activeProfile else { return }
+
+            if activeProfile.providerKind == .claude {
+                statusBarUIManager?.updateAllButtons(
+                    usage: usage,
+                    apiUsage: apiUsage
+                )
+            } else {
+                let snapshot = providerSnapshot
+                    ?? cachedProviderSnapshots[activeProfile.id]
+                    ?? .empty(for: activeProfile.providerKind)
+
+                statusBarUIManager?.updateAllButtons(
+                    snapshot: snapshot,
+                    profile: activeProfile
+                )
+            }
         }
     }
 

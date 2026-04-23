@@ -485,6 +485,64 @@ final class StatusBarUIManager {
         }
     }
 
+    /// Updates single-profile status items using a provider-neutral snapshot.
+    /// This is used for providers like Codex and Copilot whose refresh path
+    /// populates `ProviderUsageSnapshot` instead of `ClaudeUsage`.
+    func updateAllButtons(
+        snapshot: ProviderUsageSnapshot,
+        profile: Profile
+    ) {
+        let config = profile.iconConfig
+
+        guard profile.hasUsageCredentials, !config.enabledMetrics.isEmpty else {
+            if let statusItem = statusItems[.session],
+               let button = statusItem.button {
+                let menuBarIsDark = button.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+                let logoImage = renderer.createDefaultAppLogo(isDarkMode: menuBarIsDark)
+                logoImage.isTemplate = true
+                setButtonImage(button, image: logoImage)
+            }
+            return
+        }
+
+        for metricConfig in config.enabledMetrics {
+            guard let statusItem = statusItems[metricConfig.metricType],
+                  let button = statusItem.button else {
+                continue
+            }
+
+            let menuBarIsDark = button.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+
+            guard let syntheticUsage = syntheticUsage(for: snapshot, preferredMetric: metricConfig.metricType),
+                  let metricRow = row(for: metricConfig.metricType, in: snapshot, provider: profile.providerKind) else {
+                let logoImage = renderer.createDefaultAppLogo(isDarkMode: menuBarIsDark)
+                logoImage.isTemplate = true
+                setButtonImage(button, image: logoImage)
+                button.toolTip = "\(profile.name) • \(profile.providerKind.displayName)"
+                continue
+            }
+
+            let image = renderer.createImage(
+                for: metricConfig.metricType,
+                config: metricConfig,
+                globalConfig: config,
+                usage: syntheticUsage,
+                apiUsage: nil,
+                isDarkMode: menuBarIsDark,
+                colorMode: config.colorMode,
+                singleColorHex: config.singleColorHex,
+                showIconName: config.showIconNames,
+                showNextSessionTime: metricConfig.showNextSessionTime,
+                profilePrefix: profile.providerKind.menuBarPrefix,
+                showPeakEffects: profile.providerKind == .claude
+            )
+
+            image.isTemplate = config.colorMode == .monochrome && !config.showPaceMarker
+            setButtonImage(button, image: image)
+            button.toolTip = tooltip(for: profile, primaryRow: metricRow, secondaryRow: nil, styleConfig: metricConfig)
+        }
+    }
+
     /// Updates a specific metric's button
     func updateButton(
         for metricType: MenuBarMetricType,
