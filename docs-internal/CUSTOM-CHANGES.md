@@ -264,6 +264,77 @@ This file helps track what we've changed so upstream merges stay manageable.
 
 ---
 
+## 17. Safe Upstream Sync (Selective Integration)
+
+**Date:** 2026-04-23
+**Purpose:** Pull useful upstream fixes from `hamed-elfayome/main` into this multi-provider fork without overwriting fork-specific provider work or doing a risky wholesale merge.
+
+### Strategy
+- Created a dedicated integration branch and committed the fork-only single-profile Codex/Copilot menu bar rendering fix first.
+- Cherry-picked low-risk upstream commits in small batches.
+- Manually ported only the overlapping menu bar/popover fixes that fit the fork’s provider-neutral architecture.
+- Rebuilt after each batch and ran the XCTest suite before fast-forwarding `main`.
+
+### Cherry-picked upstream fixes
+
+**Imported:** `a7171bd` → local `02e298c`
+- Added browser-compatible request headers (`User-Agent`, `Referer`, `Origin`) to `claude.ai` session-key requests.
+- Fixes E3000 / false-expired-session failures after Anthropic tightened request validation.
+
+**Imported:** `5d85258` → local `5177866`
+- Added hard timeouts around `/usr/bin/security` subprocesses in `ClaudeCodeSyncService`.
+- Prevents launch hangs and keychain stalls from blocking the app indefinitely.
+
+**Imported:** `f6caf1d` → local `911b8f0`
+- Fresh login page for embedded auth by clearing stale Claude/Anthropic cookies before loading login.
+- Added real popup-based Google SSO handling and cookie-store observation.
+- Conflict was merged manually to preserve the fork’s existing 1.5s polling fallback for SPA-style cookie creation.
+
+**Imported:** `a3e0d65` → local `87795be`
+- Manual session/API key entry is now always visible beneath sign-in instead of hidden inside a collapsed disclosure group.
+
+**Imported:** `6727628` → local `60ae55b`
+- Removed the incorrect CLI tracking note from `CLIAccountView`.
+
+**Imported:** `554c793` → local `08d1a24`
+- Added missing translations for multi-profile icon styles (`circles`, `bars`, `dots`, `percent`) in non-English locales.
+
+### Manual adaptations from overlapping upstream work
+
+**Adapted locally:** `37d5ecd`
+- `AppDelegate` now always instantiates `MenuBarManager` before wizard/setup branching.
+- Active Claude profile menu/refresh gating now honors valid system Keychain CLI credentials, not just profile-local credentials.
+- Adaptation was scoped so Codex/Copilot logic and the fork’s faster 0.3s startup refresh remained intact.
+
+**Adapted locally:** `29f2dd8`
+- Added `.multiProfileConfigChanged` notification to separate “visual config tweak” from true single↔multi display mode changes.
+- Multi-profile settings in `ManageProfilesView` now trigger incremental menu bar updates instead of full NSStatusItem teardown/recreation.
+- Added `updateMultiProfileConfiguration(...)` in `StatusBarUIManager` for add/remove-only updates.
+
+**Adapted locally:** `b3b5797`
+- Added stable `autosaveName` values for single-profile metrics, multi-profile items, and default-logo status items.
+- Adapted naming to the fork’s per-provider/per-metric status item model instead of upstream’s simpler structure.
+
+**Adapted locally:** `36056d5`
+- Popover hosting controller now uses `preferredContentSize`.
+- Added shared `popoverArrowHeight` padding so content no longer collides with the menubar arrow region.
+
+**Adapted locally:** `525345b`
+- Switching between status items while the popover is open now uses synchronous close behavior to avoid EXC_BAD_ACCESS races.
+- Detached popover window uses a separate window-oriented hosting controller to avoid layout/constraint cycles.
+
+### Intentionally skipped
+- Full menu bar refactors: `127247c`, `9983056`, `c6c962f`
+- Statusline refactor chain: `025b428`, `930e300`, `59a326d`, `52a3759`, `f42bbcf`, `aaec4ef`
+- Risky profile credential sync rewrites that assume upstream’s narrower provider model
+- Any wholesale merge from upstream `main`
+
+### Verification
+- `xcodebuild -project 'Claude Usage.xcodeproj' -scheme 'Claude Usage' -sdk macosx build` → `BUILD SUCCEEDED`
+- `xcodebuild test -project 'Claude Usage.xcodeproj' -scheme 'Claude Usage' -destination 'platform=macOS'` → `TEST SUCCEEDED`
+
+---
+
 ## Files Modified (summary)
 
 | File | Change |
@@ -283,3 +354,13 @@ This file helps track what we've changed so upstream merges stay manageable.
 | `Shared/Services/Providers/ClaudeUsageProviderFetcher.swift` | Overage supplement in CLI OAuth branches |
 | `Shared/Services/ProfileManager.swift` | Auto-refresh stale CLI tokens on launch |
 | `MenuBar/MenuBarManager.swift` | Delegates to provider fetcher, no more duplicated priority chain |
+| `App/AppDelegate.swift` | Early `MenuBarManager` init for safer setup/headless flows |
+| `MenuBar/StatusBarUIManager.swift` | Stable autosave names + incremental multi-profile updates |
+| `MenuBar/PopoverContentView.swift` | Popover arrow padding for cleaner placement |
+| `Shared/Extensions/Notification+Extensions.swift` | Added `multiProfileConfigChanged` |
+| `Shared/Utilities/Constants.swift` | Added shared `popoverArrowHeight` constant |
+| `Views/Settings/App/ManageProfilesView.swift` | Multi-profile tweaks now trigger incremental status-item updates |
+| `Views/Settings/Credentials/ConsoleAuthWebView.swift` | Fresh login, popup SSO, cookie observer, polling fallback |
+| `Views/Settings/Credentials/APIBillingView.swift` | Always-visible manual session key section |
+| `Views/Settings/Credentials/PersonalUsageView.swift` | Always-visible manual session key section |
+| `Views/Settings/Credentials/CLIAccountView.swift` | Removed incorrect tracking note |

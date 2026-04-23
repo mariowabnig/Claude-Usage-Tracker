@@ -5,6 +5,23 @@ All notable changes to Claude Usage Tracker will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- **Selective upstream sync (safe batch)**: Pulled in low-risk upstream fixes for Claude session authentication, keychain resilience, sign-in UX, and localization without doing a destructive full merge.
+- **Claude session auth (E3000)**: Added browser-compatible `User-Agent`, `Referer`, and `Origin` headers to `claude.ai` session-key requests so valid Claude.ai sessions no longer fail server-side validation.
+- **Keychain launch hangs**: Bounded `/usr/bin/security` subprocess calls with hard timeouts in `ClaudeCodeSyncService`, preventing startup freezes when macOS keychain access stalls.
+- **Fresh sign-in flow**: Embedded browser auth now clears stale Claude/Anthropic cookies before login, supports real popup-based Google SSO, and observes cookie-store changes immediately while keeping the existing polling fallback.
+- **Menu bar stability**: Multi-profile visual setting changes now update status items incrementally instead of destroying and recreating them, preserving menu bar placement more reliably.
+- **Stable status item identity**: Added stable `autosaveName` values for single-profile metrics, multi-profile items, and default-logo status items to improve persistence across restarts and legitimate reconfiguration.
+- **Popover safety**: Fixed the profile-switch popover race by using synchronous close behavior, improved popover sizing/positioning, and avoided detached-window layout cycles by using a window-specific hosting controller.
+- **Claude CLI fallback gating**: Active Claude profiles can now render and refresh using valid system Keychain CLI credentials even when profile-local usage credentials are absent.
+- **Single-profile non-Claude rendering**: Preserved the fork-specific fix where Codex and GitHub Copilot profiles render correctly in single-profile menu bar mode via `ProviderUsageSnapshot`-backed synthetic usage rows.
+- **Credential entry UI**: Manual session/API key entry is now always visible beneath the browser sign-in action instead of being hidden inside a collapsed disclosure group.
+- **CLI account copy cleanup**: Removed the incorrect tracking note from the CLI Account settings view.
+- **Multi-profile localization**: Added missing translations for multi-profile icon-style labels in German, Spanish, French, Italian, Japanese, Korean, and Portuguese.
+
 ## [3.1.8] - 2026-04-07
 
 ### Added
@@ -16,10 +33,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - **Thread safety**: `FrecencyTracker` marked `@MainActor` to ensure all frecency reads/writes occur on the main thread, preventing data races.
-
-
-
-### Fixed
 
 - **Credit balance not displayed**: Gifted and purchased API credit balances now show independently in the popover, no longer gated behind the spend-limit conditional
 - **CLI OAuth missing overage data**: CLI OAuth auth paths now supplement overage and credit grant data via session key when available
