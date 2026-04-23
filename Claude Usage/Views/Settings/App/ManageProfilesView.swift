@@ -91,8 +91,8 @@ struct ManageProfilesView: View {
                                                 return
                                             }
                                             profileManager.toggleProfileSelection(profile.id)
-                                            // Post notification for menu bar to update
-                                            NotificationCenter.default.post(name: .displayModeChanged, object: nil)
+                                            // Post notification for menu bar to update incrementally
+                                            NotificationCenter.default.post(name: .multiProfileConfigChanged, object: nil)
                                         }
                                     )
                                 }
@@ -127,7 +127,7 @@ struct ManageProfilesView: View {
                                             var config = profileManager.multiProfileConfig
                                             config.iconStyle = newStyle
                                             profileManager.updateMultiProfileConfig(config)
-                                            NotificationCenter.default.post(name: .displayModeChanged, object: nil)
+                                            NotificationCenter.default.post(name: .multiProfileConfigChanged, object: nil)
                                         }
                                     )
                                 )
@@ -144,7 +144,7 @@ struct ManageProfilesView: View {
                                         var config = profileManager.multiProfileConfig
                                         config.showWeek = showWeek
                                         profileManager.updateMultiProfileConfig(config)
-                                        NotificationCenter.default.post(name: .displayModeChanged, object: nil)
+                                        NotificationCenter.default.post(name: .multiProfileConfigChanged, object: nil)
                                     }
                                 )
                             )
@@ -159,7 +159,7 @@ struct ManageProfilesView: View {
                                         var config = profileManager.multiProfileConfig
                                         config.showProfileLabel = showLabel
                                         profileManager.updateMultiProfileConfig(config)
-                                        NotificationCenter.default.post(name: .displayModeChanged, object: nil)
+                                        NotificationCenter.default.post(name: .multiProfileConfigChanged, object: nil)
                                     }
                                 )
                             )
@@ -174,7 +174,7 @@ struct ManageProfilesView: View {
                                         var config = profileManager.multiProfileConfig
                                         config.useSystemColor = useSystemColor
                                         profileManager.updateMultiProfileConfig(config)
-                                        NotificationCenter.default.post(name: .displayModeChanged, object: nil)
+                                        NotificationCenter.default.post(name: .multiProfileConfigChanged, object: nil)
                                     }
                                 )
                             )
@@ -189,7 +189,7 @@ struct ManageProfilesView: View {
                                         var config = profileManager.multiProfileConfig
                                         config.showTimeMarker = showMarker
                                         profileManager.updateMultiProfileConfig(config)
-                                        NotificationCenter.default.post(name: .displayModeChanged, object: nil)
+                                        NotificationCenter.default.post(name: .multiProfileConfigChanged, object: nil)
                                     }
                                 )
                             )
@@ -204,7 +204,7 @@ struct ManageProfilesView: View {
                                         var config = profileManager.multiProfileConfig
                                         config.showPaceMarker = showPace
                                         profileManager.updateMultiProfileConfig(config)
-                                        NotificationCenter.default.post(name: .displayModeChanged, object: nil)
+                                        NotificationCenter.default.post(name: .multiProfileConfigChanged, object: nil)
                                     }
                                 )
                             )
@@ -219,7 +219,7 @@ struct ManageProfilesView: View {
                                         var config = profileManager.multiProfileConfig
                                         config.usePaceColoring = usePace
                                         profileManager.updateMultiProfileConfig(config)
-                                        NotificationCenter.default.post(name: .displayModeChanged, object: nil)
+                                        NotificationCenter.default.post(name: .multiProfileConfigChanged, object: nil)
                                     }
                                 )
                             )

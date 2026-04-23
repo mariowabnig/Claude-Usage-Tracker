@@ -95,6 +95,9 @@ class MenuBarManager: NSObject, ObservableObject {
     // Observer for display mode changes (single/multi profile)
     private var displayModeObserver: NSObjectProtocol?
 
+    // Observer for multi-profile visual config changes
+    private var multiProfileConfigObserver: NSObjectProtocol?
+
     // Observer for screen/display changes (headless mode support)
     private var screenObserver: NSObjectProtocol?
 
@@ -126,7 +129,7 @@ class MenuBarManager: NSObject, ObservableObject {
         } else {
             // Single profile mode - setup with active profile's config
             let config = profileManager.activeProfile?.iconConfig ?? .default
-            let hasUsageCredentials = profileManager.activeProfile?.hasUsageCredentials ?? false
+            let hasUsageCredentials = hasAnyAvailableCredentials()
 
             // If no usage credentials, create empty config to show default logo
             let displayConfig: MenuBarIconConfiguration
@@ -152,10 +155,9 @@ class MenuBarManager: NSObject, ObservableObject {
         setupPopover()
 
         // Load saved data from active profile first (provides immediate feedback)
-        // BUT only if profile has usage credentials - CLI alone can't show usage
         if let profile = profileManager.activeProfile {
-            if profile.hasUsageCredentials {
-                // Profile has usage credentials - show saved usage data if available
+            if hasAnyAvailableCredentials(for: profile) {
+                // Credentials available - show saved usage data if available
                 if let savedUsage = profile.claudeUsage {
                     usage = savedUsage
                 }
@@ -163,10 +165,10 @@ class MenuBarManager: NSObject, ObservableObject {
                     apiUsage = savedAPIUsage
                 }
             } else {
-                // No usage credentials - clear any old usage data and show default logo
+                // No credentials available - clear any old usage data and show default logo
                 usage = .empty
                 apiUsage = nil
-                LoggingService.shared.log("MenuBarManager: Profile has no usage credentials, showing default logo")
+                LoggingService.shared.log("MenuBarManager: No credentials available, showing default logo")
             }
             updateAllStatusBarIcons()
         }
@@ -176,9 +178,9 @@ class MenuBarManager: NSObject, ObservableObject {
             // Only refresh if we haven't refreshed recently (avoid duplicate on startup)
             guard let self = self else { return }
 
-            // Skip if profile has no usage credentials (CLI alone can't be used)
-            guard let profile = self.profileManager.activeProfile, profile.hasUsageCredentials else {
-                LoggingService.shared.log("Skipping network-available refresh (no usage credentials)")
+            // Skip only if no credentials are available for the active profile.
+            guard self.hasAnyAvailableCredentials() else {
+                LoggingService.shared.log("Skipping network-available refresh (no credentials available)")
                 return
             }
 
@@ -198,13 +200,12 @@ class MenuBarManager: NSObject, ObservableObject {
         networkMonitor.startMonitoring()
 
         // Initial data fetch (brief delay to let the run loop stabilize at launch)
-        // Only if profile has usage credentials (not just CLI)
-        if let profile = profileManager.activeProfile, profile.hasUsageCredentials {
+        if hasAnyAvailableCredentials() {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
                 self?.refreshUsage()
             }
         } else {
-            LoggingService.shared.log("Skipping initial refresh (no usage credentials)")
+            LoggingService.shared.log("Skipping initial refresh (no credentials available)")
         }
 
         // Start auto-refresh timer with active profile's interval
@@ -221,6 +222,7 @@ class MenuBarManager: NSObject, ObservableObject {
 
         // Observe display mode changes (single/multi profile)
         observeDisplayModeChanges()
+        observeMultiProfileConfigChanges()
 
         // Setup headless mode observer if enabled (for Remote Desktop support)
         setupHeadlessModeObserver()
@@ -312,6 +314,10 @@ class MenuBarManager: NSObject, ObservableObject {
         if let displayModeObserver = displayModeObserver {
             NotificationCenter.default.removeObserver(displayModeObserver)
             self.displayModeObserver = nil
+        }
+        if let multiProfileConfigObserver = multiProfileConfigObserver {
+            NotificationCenter.default.removeObserver(multiProfileConfigObserver)
+            self.multiProfileConfigObserver = nil
         }
         if let screenObserver = screenObserver {
             NotificationCenter.default.removeObserver(screenObserver)
@@ -417,8 +423,8 @@ class MenuBarManager: NSObject, ObservableObject {
         // 3. Update menu bar based on current display mode
         // IMPORTANT: In multi-profile mode, we update all icons, not just switch config
         if profileManager.displayMode == .multi {
-            // Multi-profile mode - refresh all profile icons
-            setupMultiProfileMode()
+            // Multi-profile mode - update icons without recreating status items
+            updateMultiProfileDisplay()
         } else {
             // Single profile mode - update menu bar configuration
             updateMenuBarDisplay(with: profile.iconConfig)
@@ -427,12 +433,12 @@ class MenuBarManager: NSObject, ObservableObject {
         // 4. Recreate popover with new profile data
         recreatePopover()
 
-        // 5. Trigger immediate refresh ONLY if profile has usage credentials
-        if profile.hasUsageCredentials {
+        // 5. Trigger immediate refresh only if credentials are available
+        if shouldAttemptUsageRefresh(for: profile) {
             self.lastRefreshTriggerTime = Date()
             refreshUsage()
         } else {
-            LoggingService.shared.log("MenuBarManager: Skipping refresh for profile without usage credentials")
+            LoggingService.shared.log("MenuBarManager: Skipping refresh for profile without available credentials")
         }
     }
 
@@ -462,8 +468,8 @@ class MenuBarManager: NSObject, ObservableObject {
             return
         }
 
-        // Check if active profile has usage credentials (not just CLI)
-        let hasUsageCredentials = profileManager.activeProfile?.hasUsageCredentials ?? false
+        // Check if the active profile has any usable credentials available.
+        let hasUsageCredentials = hasAnyAvailableCredentials()
 
         // If no usage credentials, use an empty config (will show default logo)
         let displayConfig: MenuBarIconConfiguration
@@ -530,7 +536,10 @@ class MenuBarManager: NSObject, ObservableObject {
             }
         )
 
-        return NSHostingController(rootView: contentView)
+        let hostingController = NSHostingController(rootView: contentView)
+        hostingController.preferredContentSize = preferredPopoverSize()
+        hostingController.sizingOptions = .preferredContentSize
+        return hostingController
     }
 
     @objc private func togglePopover(_ sender: Any?) {
@@ -588,10 +597,8 @@ class MenuBarManager: NSObject, ObservableObject {
                     closePopover()
                 } else {
                     // Different button - close current and show at new position
-                    popover.performClose(nil)
+                    popover.close()
                     stopMonitoringForOutsideClicks()
-                    // Update content view controller for new profile data
-                    popover.contentViewController = createContentViewController()
                     popover.contentSize = preferredPopoverSize()
                     popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
                     currentPopoverButton = button
@@ -625,7 +632,7 @@ class MenuBarManager: NSObject, ObservableObject {
     }
 
     private func closePopover() {
-        popover?.performClose(nil)
+        popover?.close()
         stopMonitoringForOutsideClicks()
         currentPopoverButton = nil
     }
@@ -654,7 +661,7 @@ class MenuBarManager: NSObject, ObservableObject {
             window.close()
             detachedWindow = nil
         } else {
-            popover?.performClose(nil)
+            popover?.close()
         }
     }
 
@@ -789,12 +796,13 @@ class MenuBarManager: NSObject, ObservableObject {
             Task { @MainActor in
                 // In multi-profile mode, never rebuild the single-profile status items.
                 if self.profileManager.displayMode == .multi {
-                    self.setupMultiProfileMode()
+                    self.updateMultiProfileDisplay()
                     return
                 }
 
                 // Check if active profile has usage credentials
-                guard let profile = self.profileManager.activeProfile, profile.hasUsageCredentials else {
+                guard let profile = self.profileManager.activeProfile,
+                      self.hasAnyAvailableCredentials(for: profile) else {
                     LoggingService.shared.logInfo("Credentials changed but no usage credentials - showing default logo")
 
                     // Reconfigure menu bar to show default logo
@@ -830,13 +838,27 @@ class MenuBarManager: NSObject, ObservableObject {
             Task { @MainActor in
                 // Handle differently based on display mode
                 if self.profileManager.displayMode == .multi {
-                    // Multi-profile mode - refresh all profile icons
-                    self.setupMultiProfileMode()
+                    // Multi-profile mode - update icons without recreating status items
+                    self.updateMultiProfileDisplay()
                 } else {
                     // Single profile mode
                     let newConfig = self.profileManager.activeProfile?.iconConfig ?? .default
                     self.updateMenuBarDisplay(with: newConfig)
                 }
+            }
+        }
+    }
+
+    private func observeMultiProfileConfigChanges() {
+        multiProfileConfigObserver = NotificationCenter.default.addObserver(
+            forName: .multiProfileConfigChanged,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            guard let self = self else { return }
+
+            Task { @MainActor in
+                self.updateMultiProfileDisplay()
             }
         }
     }
@@ -903,6 +925,34 @@ class MenuBarManager: NSObject, ObservableObject {
         return statusBarUIManager?.hasValidStatusBar ?? false
     }
 
+    /// Checks whether the given profile has any credentials that can currently
+    /// be used to fetch usage. For Claude we allow a fallback to the system
+    /// Claude CLI credentials, but only for the active profile.
+    private func hasAnyAvailableCredentials(for profile: Profile? = nil) -> Bool {
+        guard let profile = profile ?? profileManager.activeProfile else { return false }
+
+        if profile.hasUsageCredentials {
+            return true
+        }
+
+        guard profile.providerKind == .claude,
+              profile.id == profileManager.activeProfile?.id else {
+            return false
+        }
+
+        do {
+            if let systemCreds = try ClaudeCodeSyncService.shared.readSystemCredentials(),
+               !ClaudeCodeSyncService.shared.isTokenExpired(systemCreds),
+               ClaudeCodeSyncService.shared.extractAccessToken(from: systemCreds) != nil {
+                return true
+            }
+        } catch {
+            LoggingService.shared.log("MenuBarManager.hasAnyAvailableCredentials: system credential check failed: \(error.localizedDescription)")
+        }
+
+        return false
+    }
+
     private func setupMultiProfileMode() {
         let selectedProfiles = profileManager.getSelectedProfiles()
         let config = profileManager.multiProfileConfig
@@ -928,6 +978,29 @@ class MenuBarManager: NSObject, ObservableObject {
 
         // Refresh data for all selected profiles that have credentials
         refreshAllSelectedProfiles()
+    }
+
+    private func updateMultiProfileDisplay() {
+        let selectedProfiles = profileManager.getSelectedProfiles()
+        let config = profileManager.multiProfileConfig
+
+        statusBarUIManager?.updateMultiProfileConfiguration(
+            profiles: selectedProfiles,
+            target: self,
+            action: #selector(togglePopover)
+        )
+
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            let snapshots = self.multiProfileSnapshots(for: selectedProfiles)
+            self.statusBarUIManager?.updateMultiProfileButtons(
+                profiles: selectedProfiles,
+                snapshots: snapshots,
+                config: config
+            )
+        }
+
+        LoggingService.shared.log("MenuBarManager: Multi-profile display updated incrementally with \(selectedProfiles.count) profiles")
     }
 
     /// Refreshes usage data for all profiles selected for multi-profile display
@@ -1179,7 +1252,7 @@ class MenuBarManager: NSObject, ObservableObject {
     private func setupSingleProfileMode() {
         guard let profile = profileManager.activeProfile else { return }
 
-        let hasUsageCredentials = profile.hasUsageCredentials
+        let hasUsageCredentials = hasAnyAvailableCredentials(for: profile)
         let config = profile.iconConfig
 
         // If no usage credentials, create empty config to show default logo
@@ -1477,7 +1550,11 @@ class MenuBarManager: NSObject, ObservableObject {
     }
 
     private func shouldAttemptUsageRefresh(for profile: Profile) -> Bool {
-        profile.providerKind != .claude || profile.hasUsageCredentials
+        if profile.providerKind == .claude {
+            return hasAnyAvailableCredentials(for: profile)
+        }
+
+        return profile.hasUsageCredentials
     }
 
     /// Shows a brief success notification for user-triggered refreshes
@@ -1904,22 +1981,30 @@ extension MenuBarManager: NSPopoverDelegate {
         // Stop monitoring for outside clicks when detaching
         stopMonitoringForOutsideClicks()
 
-        // Create a new window with NEW content view controller
-        // This prevents the popover from losing its content
-        let newContentViewController = createContentViewController()
+        let contentView = PopoverContentView(
+            manager: self,
+            onRefresh: { [weak self] in
+                self?.refreshPopoverUsage()
+            },
+            onPreferences: { [weak self] in
+                self?.closePopoverOrWindow()
+                self?.preferencesClicked()
+            }
+        )
+        let hostingController = NSHostingController(rootView: contentView)
 
         let window = NSPanel(
-            contentRect: NSRect(x: 0, y: 0, width: 320, height: 600),
-            styleMask: [.titled, .closable, .fullSizeContentView, .nonactivatingPanel, .hudWindow],
+            contentRect: NSRect(origin: .zero, size: Constants.WindowSizes.popoverSize),
+            styleMask: [.titled, .closable, .nonactivatingPanel, .hudWindow],
             backing: .buffered,
             defer: false
         )
-        window.contentViewController = newContentViewController
+        window.contentViewController = hostingController
         window.title = ""
         window.titlebarAppearsTransparent = true
         window.titleVisibility = .hidden
         window.isMovableByWindowBackground = true
-        window.setContentSize(NSSize(width: 320, height: 600))
+        window.setContentSize(Constants.WindowSizes.popoverSize)
         window.isReleasedWhenClosed = false
         window.level = .floating
         window.isRestorable = false

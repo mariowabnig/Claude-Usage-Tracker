@@ -35,6 +35,25 @@ final class StatusBarUIManager {
 
     weak var delegate: StatusBarUIManagerDelegate?
 
+    // MARK: - Stable identity helpers
+
+    private static let autosavePrefix = "claudeUsageTracker"
+    private static let defaultLogoPlaceholderUUID = UUID(uuidString: "00000000-0000-0000-0000-000000000000")!
+    private static let defaultLogoPlaceholderKey = MultiProfileStatusItemKey(profileId: defaultLogoPlaceholderUUID, metricType: .session)
+    private static let defaultLogoAutosaveName: NSStatusItem.AutosaveName = "\(autosavePrefix).defaultLogo"
+
+    private static func autosaveName(for metricType: MenuBarMetricType) -> NSStatusItem.AutosaveName {
+        "\(autosavePrefix).metric.\(metricType.rawValue)"
+    }
+
+    private static func autosaveName(for itemKey: MultiProfileStatusItemKey) -> NSStatusItem.AutosaveName {
+        if itemKey == defaultLogoPlaceholderKey {
+            return defaultLogoAutosaveName
+        }
+
+        return "\(autosavePrefix).multiProfile.\(itemKey.profileId.uuidString).\(itemKey.metricType.rawValue)"
+    }
+
     // MARK: - Initialization
 
     init() {}
@@ -50,6 +69,7 @@ final class StatusBarUIManager {
         if config.enabledMetrics.isEmpty {
             // No credentials/metrics - show default app logo
             let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+            statusItem.autosaveName = Self.defaultLogoAutosaveName
 
             if let button = statusItem.button {
                 button.action = action
@@ -67,6 +87,7 @@ final class StatusBarUIManager {
             // Create status items for enabled metrics
             for metricConfig in config.enabledMetrics {
                 let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+                statusItem.autosaveName = Self.autosaveName(for: metricConfig.metricType)
 
                 if let button = statusItem.button {
                     button.action = action
@@ -116,6 +137,9 @@ final class StatusBarUIManager {
         let itemsToAdd = newMetricTypes.subtracting(currentMetricTypes)
         for metricType in itemsToAdd {
             let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+            statusItem.autosaveName = config.enabledMetrics.isEmpty
+                ? Self.defaultLogoAutosaveName
+                : Self.autosaveName(for: metricType)
 
             if let button = statusItem.button {
                 button.action = action
@@ -179,13 +203,12 @@ final class StatusBarUIManager {
         isMultiProfileMode = true
 
         let selectedProfiles = profiles.filter { $0.isSelectedForDisplay }
-        let selectedItems = selectedProfiles.flatMap { profile in
-            multiProfileMetricConfigs(for: profile).map { MultiProfileStatusItemKey(profileId: profile.id, metricType: $0.metricType) }
-        }
+        let selectedItems = multiProfileItemKeys(for: selectedProfiles)
 
         if selectedItems.isEmpty {
             // No profiles selected - show default logo
             let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+            statusItem.autosaveName = Self.defaultLogoAutosaveName
             if let button = statusItem.button {
                 button.action = action
                 button.target = target
@@ -193,13 +216,13 @@ final class StatusBarUIManager {
             } else {
                 LoggingService.shared.logWarning("Multi-profile status bar button is nil - screens: \(NSScreen.screens.count)")
             }
-            // Use a placeholder UUID for default logo
-            multiProfileStatusItems[MultiProfileStatusItemKey(profileId: UUID(), metricType: .session)] = statusItem
+            multiProfileStatusItems[Self.defaultLogoPlaceholderKey] = statusItem
             LoggingService.shared.logUIEvent("Multi-profile: No profiles selected, showing default logo")
         } else {
             // Create one status item per selected metric window
             for item in selectedItems {
                 let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+                statusItem.autosaveName = Self.autosaveName(for: item)
 
                 if let button = statusItem.button {
                     button.action = action
@@ -217,6 +240,63 @@ final class StatusBarUIManager {
         observeAppearanceChanges()
     }
 
+    func updateMultiProfileConfiguration(profiles: [Profile], target: AnyObject, action: Selector) {
+        guard isMultiProfileMode else {
+            setupMultiProfile(profiles: profiles, target: target, action: action)
+            return
+        }
+
+        let selectedItems = multiProfileItemKeys(for: profiles)
+        let newItemKeys: Set<MultiProfileStatusItemKey> = selectedItems.isEmpty
+            ? [Self.defaultLogoPlaceholderKey]
+            : Set(selectedItems)
+        let currentItemKeys = Set(multiProfileStatusItems.keys)
+
+        let itemsToRemove = currentItemKeys.subtracting(newItemKeys)
+        for itemKey in itemsToRemove {
+            if let statusItem = multiProfileStatusItems[itemKey] {
+                if let button = statusItem.button {
+                    button.image = nil
+                    button.action = nil
+                    button.target = nil
+                }
+                NSStatusBar.system.removeStatusItem(statusItem)
+                LoggingService.shared.logUIEvent("Multi-profile: Removed status item for \(itemKey.profileId.uuidString.prefix(8))/\(itemKey.metricType.rawValue)")
+            }
+            multiProfileStatusItems.removeValue(forKey: itemKey)
+        }
+
+        let itemsToAdd = newItemKeys.subtracting(currentItemKeys)
+        if selectedItems.isEmpty, itemsToAdd.contains(Self.defaultLogoPlaceholderKey) {
+            let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+            statusItem.autosaveName = Self.defaultLogoAutosaveName
+
+            if let button = statusItem.button {
+                button.action = action
+                button.target = target
+                button.title = ""
+            }
+
+            multiProfileStatusItems[Self.defaultLogoPlaceholderKey] = statusItem
+            LoggingService.shared.logUIEvent("Multi-profile: Added default logo")
+        } else {
+            for itemKey in selectedItems where itemsToAdd.contains(itemKey) {
+                let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+                statusItem.autosaveName = Self.autosaveName(for: itemKey)
+
+                if let button = statusItem.button {
+                    button.action = action
+                    button.target = target
+                }
+
+                multiProfileStatusItems[itemKey] = statusItem
+                LoggingService.shared.logUIEvent("Multi-profile: Added status item for \(itemKey.profileId.uuidString.prefix(8))/\(itemKey.metricType.rawValue)")
+            }
+        }
+
+        LoggingService.shared.logUIEvent("Multi-profile config updated: removed=\(itemsToRemove.count), added=\(itemsToAdd.count), kept=\(currentItemKeys.intersection(newItemKeys).count)")
+    }
+
     /// Updates all multi-profile status items
     func updateMultiProfileButtons(
         profiles: [Profile],
@@ -225,6 +305,19 @@ final class StatusBarUIManager {
     ) {
         guard isMultiProfileMode else { return }
         _ = config
+
+        let selectedItems = multiProfileItemKeys(for: profiles)
+        if selectedItems.isEmpty {
+            if let statusItem = multiProfileStatusItems[Self.defaultLogoPlaceholderKey],
+               let button = statusItem.button {
+                let menuBarIsDark = button.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+                let logoImage = renderer.createDefaultAppLogo(isDarkMode: menuBarIsDark)
+                logoImage.isTemplate = true
+                setButtonImage(button, image: logoImage)
+                button.toolTip = "Claude Usage"
+            }
+            return
+        }
 
         for profile in profiles where profile.isSelectedForDisplay {
             for metricConfig in multiProfileMetricConfigs(for: profile) {
@@ -266,6 +359,16 @@ final class StatusBarUIManager {
                 button.toolTip = tooltip(for: profile, primaryRow: metricRow, secondaryRow: nil, styleConfig: metricConfig)
             }
         }
+    }
+
+    private func multiProfileItemKeys(for profiles: [Profile]) -> [MultiProfileStatusItemKey] {
+        profiles
+            .filter { $0.isSelectedForDisplay }
+            .flatMap { profile in
+                multiProfileMetricConfigs(for: profile).map {
+                    MultiProfileStatusItemKey(profileId: profile.id, metricType: $0.metricType)
+                }
+            }
     }
 
     private func multiProfileMetricConfigs(for profile: Profile) -> [MetricIconConfig] {
@@ -432,7 +535,7 @@ final class StatusBarUIManager {
         let config = profile?.iconConfig ?? .default
 
         // Check if we should show default logo (no usage credentials OR no enabled metrics)
-        let hasUsageCredentials = profile?.hasUsageCredentials ?? false
+        let hasUsageCredentials = hasRenderableUsageCredentials(for: profile)
         if !hasUsageCredentials || config.enabledMetrics.isEmpty {
             // Show default app logo
             if let statusItem = statusItems[.session],  // We use .session as placeholder key
@@ -483,6 +586,31 @@ final class StatusBarUIManager {
             }
             button.toolTip = PeakHoursHelper.tooltip(metricName: metricName, percentage: pct)
         }
+    }
+
+    private func hasRenderableUsageCredentials(for profile: Profile?) -> Bool {
+        guard let profile else { return false }
+
+        if profile.hasUsageCredentials {
+            return true
+        }
+
+        guard profile.providerKind == .claude,
+              profile.id == ProfileManager.shared.activeProfile?.id else {
+            return false
+        }
+
+        do {
+            if let systemCreds = try ClaudeCodeSyncService.shared.readSystemCredentials(),
+               !ClaudeCodeSyncService.shared.isTokenExpired(systemCreds),
+               ClaudeCodeSyncService.shared.extractAccessToken(from: systemCreds) != nil {
+                return true
+            }
+        } catch {
+            LoggingService.shared.log("StatusBarUIManager.hasRenderableUsageCredentials: system credential check failed: \(error.localizedDescription)")
+        }
+
+        return false
     }
 
     /// Updates single-profile status items using a provider-neutral snapshot.

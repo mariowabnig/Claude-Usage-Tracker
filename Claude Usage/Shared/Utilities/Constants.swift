@@ -148,6 +148,7 @@ enum Constants {
         static let expandedPopoverSectionHeight: CGFloat = 210
         static let expandedPopoverFilterHeight: CGFloat = 62
         static let expandedPopoverMaxHeight: CGFloat = 920
+        static let popoverArrowHeight: CGFloat = 13
     }
 
     // GitHub Repository Info

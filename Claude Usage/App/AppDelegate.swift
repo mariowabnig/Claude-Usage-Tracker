@@ -35,10 +35,14 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
             object: nil
         )
 
+        // Always create the menu bar manager up front so delayed retries and the
+        // setup wizard close handler have a valid reference even if the wizard
+        // fails to render on some macOS builds.
+        menuBarManager = MenuBarManager()
+
         // Check if setup has been completed
         if !shouldShowSetupWizard() {
             // Initialize menu bar with active profile
-            menuBarManager = MenuBarManager()
             menuBarManager?.setup()
         } else {
             showSetupWizardManually()
@@ -195,9 +199,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
             NSApp.setActivationPolicy(.accessory)
             self?.setupWindow = nil
 
-            // Initialize menu bar after setup completes
-            if self?.menuBarManager == nil {
-                self?.menuBarManager = MenuBarManager()
+            // Initialize status bar after setup completes if it is not already active.
+            if self?.menuBarManager?.hasValidStatusBar() != true {
                 self?.menuBarManager?.setup()
             }
         }
