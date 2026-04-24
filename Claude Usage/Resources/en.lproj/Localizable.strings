@@ -521,6 +521,7 @@
 "multiprofile.active_badge" = "Active";
 "multiprofile.at_least_one" = "At least one profile must be selected";
 "multiprofile.icon_style" = "Icon Style";
+"multiprofile.style_battery" = "Battery";
 "multiprofile.style_circles" = "Circles";
 "multiprofile.style_bars" = "Bars";
 "multiprofile.style_dots" = "Dots";

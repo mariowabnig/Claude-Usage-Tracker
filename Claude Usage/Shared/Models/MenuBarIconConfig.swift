@@ -223,6 +223,7 @@ struct MetricIconConfig: Codable, Equatable {
 
 /// Icon style for multi-profile display
 enum MultiProfileIconStyle: String, Codable, CaseIterable {
+    case battery      // Individual metric icons per profile (uses per-profile Darstellung)
     case concentric   // Concentric circles (session inner, week outer)
     case progressBar  // Horizontal progress bars stacked
     case compact      // Minimal dot indicators
@@ -230,6 +231,8 @@ enum MultiProfileIconStyle: String, Codable, CaseIterable {
 
     var displayName: String {
         switch self {
+        case .battery:
+            return "Battery (Individual)"
         case .concentric:
             return "Concentric Circles"
         case .progressBar:
@@ -244,6 +247,8 @@ enum MultiProfileIconStyle: String, Codable, CaseIterable {
     /// Localization key for short segmented picker label
     var shortNameKey: String {
         switch self {
+        case .battery:
+            return "multiprofile.style_battery"
         case .concentric:
             return "multiprofile.style_circles"
         case .progressBar:
@@ -257,6 +262,8 @@ enum MultiProfileIconStyle: String, Codable, CaseIterable {
 
     var description: String {
         switch self {
+        case .battery:
+            return "Individual metric icons per profile"
         case .concentric:
             return "Session inside, week outside ring"
         case .progressBar:
@@ -270,6 +277,8 @@ enum MultiProfileIconStyle: String, Codable, CaseIterable {
 
     var icon: String {
         switch self {
+        case .battery:
+            return "battery.75percent"
         case .concentric:
             return "circle.circle"
         case .progressBar:
@@ -350,6 +359,7 @@ struct MenuBarIconConfiguration: Codable, Equatable {
     var showPaceMarker: Bool
     var usePaceColoring: Bool
     var metrics: [MetricIconConfig]
+    var multiProfileIconStyle: MultiProfileIconStyle?
 
     init(
         colorMode: MenuBarColorMode = .multiColor,
@@ -363,7 +373,8 @@ struct MenuBarIconConfiguration: Codable, Equatable {
             .sessionDefault,
             .weekDefault,
             .apiDefault
-        ]
+        ],
+        multiProfileIconStyle: MultiProfileIconStyle? = nil
     ) {
         self.colorMode = colorMode
         self.singleColorHex = singleColorHex
@@ -373,6 +384,7 @@ struct MenuBarIconConfiguration: Codable, Equatable {
         self.showPaceMarker = showPaceMarker
         self.usePaceColoring = usePaceColoring
         self.metrics = metrics
+        self.multiProfileIconStyle = multiProfileIconStyle
     }
 
     // MARK: - Codable (Custom decoder for backwards compatibility)
@@ -387,6 +399,7 @@ struct MenuBarIconConfiguration: Codable, Equatable {
         case showPaceMarker
         case usePaceColoring
         case metrics
+        case multiProfileIconStyle
     }
 
     init(from decoder: Decoder) throws {
@@ -406,6 +419,7 @@ struct MenuBarIconConfiguration: Codable, Equatable {
         showPaceMarker = try container.decodeIfPresent(Bool.self, forKey: .showPaceMarker) ?? false
         usePaceColoring = try container.decodeIfPresent(Bool.self, forKey: .usePaceColoring) ?? false
         metrics = try container.decode([MetricIconConfig].self, forKey: .metrics)
+        multiProfileIconStyle = try container.decodeIfPresent(MultiProfileIconStyle.self, forKey: .multiProfileIconStyle)
     }
 
     func encode(to encoder: Encoder) throws {
@@ -418,6 +432,7 @@ struct MenuBarIconConfiguration: Codable, Equatable {
         try container.encode(showPaceMarker, forKey: .showPaceMarker)
         try container.encode(usePaceColoring, forKey: .usePaceColoring)
         try container.encode(metrics, forKey: .metrics)
+        try container.encodeIfPresent(multiProfileIconStyle, forKey: .multiProfileIconStyle)
         // Note: We don't encode monochromeMode anymore - it's only for reading legacy data
     }
 

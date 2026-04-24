@@ -523,6 +523,7 @@
 "multiprofile.subtitle" = "Mehrere Profile in der Menüleiste anzeigen";
 "multiprofile.enable_title" = "Mehrere Profile anzeigen";
 "multiprofile.enable_description" = "Ausgewählte Profile als kompakte Symbole nebeneinander anzeigen";
+"multiprofile.style_battery" = "Batterie";
 "multiprofile.style_circles" = "Kreise";
 "multiprofile.style_bars" = "Balken";
 "multiprofile.style_dots" = "Punkte";
@@ -532,6 +533,7 @@
 "multiprofile.active_badge" = "Aktiv";
 "multiprofile.at_least_one" = "Mindestens ein Profil muss ausgewählt sein";
 "multiprofile.icon_style" = "Icon-Stil";
+"multiprofile.style_battery" = "Batterie";
 "multiprofile.style_circles" = "Kreise";
 "multiprofile.style_bars" = "Balken";
 "multiprofile.style_dots" = "Punkte";

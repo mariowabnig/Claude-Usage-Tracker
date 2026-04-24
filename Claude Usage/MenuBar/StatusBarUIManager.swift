@@ -200,14 +200,14 @@ final class StatusBarUIManager {
     // MARK: - Multi-Profile Mode
 
     /// Sets up status bar for multi-profile display mode
-    func setupMultiProfile(profiles: [Profile], target: AnyObject, action: Selector) {
+    func setupMultiProfile(profiles: [Profile], config: MultiProfileDisplayConfig, target: AnyObject, action: Selector) {
         // Clean up existing items
         cleanup()
 
         isMultiProfileMode = true
 
         let selectedProfiles = profiles.filter { $0.isSelectedForDisplay }
-        let selectedItems = multiProfileItemKeys(for: selectedProfiles)
+        let selectedItems = multiProfileItemKeys(for: selectedProfiles, globalConfig: config)
 
         if selectedItems.isEmpty {
             // No profiles selected - show default logo
@@ -244,13 +244,13 @@ final class StatusBarUIManager {
         observeAppearanceChanges()
     }
 
-    func updateMultiProfileConfiguration(profiles: [Profile], target: AnyObject, action: Selector) {
+    func updateMultiProfileConfiguration(profiles: [Profile], config: MultiProfileDisplayConfig, target: AnyObject, action: Selector) {
         guard isMultiProfileMode else {
-            setupMultiProfile(profiles: profiles, target: target, action: action)
+            setupMultiProfile(profiles: profiles, config: config, target: target, action: action)
             return
         }
 
-        let selectedItems = multiProfileItemKeys(for: profiles)
+        let selectedItems = multiProfileItemKeys(for: profiles, globalConfig: config)
         let newItemKeys: Set<MultiProfileStatusItemKey> = selectedItems.isEmpty
             ? [Self.defaultLogoPlaceholderKey]
             : Set(selectedItems)
@@ -309,7 +309,7 @@ final class StatusBarUIManager {
     ) {
         guard isMultiProfileMode else { return }
 
-        let selectedItems = multiProfileItemKeys(for: profiles)
+        let selectedItems = multiProfileItemKeys(for: profiles, globalConfig: config)
         if selectedItems.isEmpty {
             if let statusItem = multiProfileStatusItems[Self.defaultLogoPlaceholderKey],
                let button = statusItem.button {
@@ -323,46 +323,129 @@ final class StatusBarUIManager {
         }
 
         for profile in profiles where profile.isSelectedForDisplay {
-            let itemKey = Self.multiProfilePrimaryKey(for: profile.id)
-            guard let statusItem = multiProfileStatusItems[itemKey],
-                  let button = statusItem.button else {
-                continue
+            let effectiveStyle = profile.iconConfig.multiProfileIconStyle ?? config.iconStyle
+
+            if effectiveStyle == .battery {
+                renderBatteryMultiProfile(profile: profile, snapshots: snapshots, config: config)
+            } else {
+                renderCompactMultiProfile(profile: profile, snapshots: snapshots, config: config, effectiveStyle: effectiveStyle)
             }
-
-            let menuBarIsDark = button.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
-
-            guard let snapshot = snapshots[profile.id],
-                  let renderState = multiProfileRenderState(for: profile, snapshot: snapshot, config: config) else {
-                let logoImage = renderer.createDefaultAppLogo(isDarkMode: menuBarIsDark)
-                logoImage.isTemplate = true
-                setButtonImage(button, image: logoImage)
-                button.toolTip = profile.name
-                continue
-            }
-
-            let image = multiProfileImage(
-                for: profile,
-                config: config,
-                renderState: renderState,
-                isDarkMode: menuBarIsDark
-            )
-
-            image.isTemplate = false
-            setButtonImage(button, image: image)
-            button.toolTip = tooltip(
-                for: profile,
-                primaryRow: renderState.primaryRow,
-                secondaryRow: renderState.secondaryRow,
-                styleName: config.iconStyle.displayName
-            )
         }
     }
 
-    private func multiProfileItemKeys(for profiles: [Profile]) -> [MultiProfileStatusItemKey] {
+    private func renderBatteryMultiProfile(
+        profile: Profile,
+        snapshots: [UUID: ProviderUsageSnapshot],
+        config: MultiProfileDisplayConfig
+    ) {
+        let profileConfig = profile.iconConfig
+        let prefix = String(profile.name.prefix(2)).uppercased()
+
+        guard let snapshot = snapshots[profile.id],
+              let syntheticUsage = syntheticUsage(for: snapshot, preferredMetric: .session) else {
+            for metricConfig in profileConfig.enabledMetrics {
+                let itemKey = MultiProfileStatusItemKey(profileId: profile.id, metricType: metricConfig.metricType)
+                if let statusItem = multiProfileStatusItems[itemKey],
+                   let button = statusItem.button {
+                    let menuBarIsDark = button.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+                    let logoImage = renderer.createDefaultAppLogo(isDarkMode: menuBarIsDark)
+                    logoImage.isTemplate = true
+                    setButtonImage(button, image: logoImage)
+                    button.toolTip = profile.name
+                }
+            }
+            return
+        }
+
+        for metricConfig in profileConfig.enabledMetrics {
+            let itemKey = MultiProfileStatusItemKey(profileId: profile.id, metricType: metricConfig.metricType)
+            guard let statusItem = multiProfileStatusItems[itemKey],
+                  let button = statusItem.button else { continue }
+
+            let menuBarIsDark = button.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+
+            let image = renderer.createImage(
+                for: metricConfig.metricType,
+                config: metricConfig,
+                globalConfig: profileConfig,
+                usage: syntheticUsage,
+                apiUsage: nil,
+                isDarkMode: menuBarIsDark,
+                colorMode: profileConfig.colorMode,
+                singleColorHex: profileConfig.singleColorHex,
+                showIconName: profileConfig.showIconNames,
+                showNextSessionTime: metricConfig.showNextSessionTime,
+                profilePrefix: prefix,
+                showPeakEffects: profile.providerKind == .claude
+            )
+
+            image.isTemplate = profileConfig.colorMode == .monochrome && !profileConfig.showPaceMarker
+            setButtonImage(button, image: image)
+
+            let metricName = metricConfig.metricType.displayName
+            button.toolTip = "\(profile.name) • \(metricName)"
+        }
+    }
+
+    private func renderCompactMultiProfile(
+        profile: Profile,
+        snapshots: [UUID: ProviderUsageSnapshot],
+        config: MultiProfileDisplayConfig,
+        effectiveStyle: MultiProfileIconStyle
+    ) {
+        let itemKey = Self.multiProfilePrimaryKey(for: profile.id)
+        guard let statusItem = multiProfileStatusItems[itemKey],
+              let button = statusItem.button else { return }
+
+        let menuBarIsDark = button.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+
+        guard let snapshot = snapshots[profile.id],
+              let renderState = multiProfileRenderState(for: profile, snapshot: snapshot, config: config) else {
+            let logoImage = renderer.createDefaultAppLogo(isDarkMode: menuBarIsDark)
+            logoImage.isTemplate = true
+            setButtonImage(button, image: logoImage)
+            button.toolTip = profile.name
+            return
+        }
+
+        let renderConfig = MultiProfileDisplayConfig(
+            iconStyle: effectiveStyle,
+            showWeek: config.showWeek,
+            showProfileLabel: config.showProfileLabel,
+            useSystemColor: config.useSystemColor,
+            showTimeMarker: config.showTimeMarker,
+            showPaceMarker: config.showPaceMarker,
+            usePaceColoring: config.usePaceColoring
+        )
+
+        let image = multiProfileImage(
+            for: profile,
+            config: renderConfig,
+            renderState: renderState,
+            isDarkMode: menuBarIsDark
+        )
+
+        image.isTemplate = false
+        setButtonImage(button, image: image)
+        button.toolTip = tooltip(
+            for: profile,
+            primaryRow: renderState.primaryRow,
+            secondaryRow: renderState.secondaryRow,
+            styleName: effectiveStyle.displayName
+        )
+    }
+
+    private func multiProfileItemKeys(for profiles: [Profile], globalConfig: MultiProfileDisplayConfig) -> [MultiProfileStatusItemKey] {
         profiles
             .filter { $0.isSelectedForDisplay }
-            .map { profile in
-                Self.multiProfilePrimaryKey(for: profile.id)
+            .flatMap { profile -> [MultiProfileStatusItemKey] in
+                let effectiveStyle = profile.iconConfig.multiProfileIconStyle ?? globalConfig.iconStyle
+                if effectiveStyle == .battery {
+                    return profile.iconConfig.enabledMetrics.map { metric in
+                        MultiProfileStatusItemKey(profileId: profile.id, metricType: metric.metricType)
+                    }
+                }
+                return [Self.multiProfilePrimaryKey(for: profile.id)]
             }
     }
 
@@ -453,6 +536,9 @@ final class StatusBarUIManager {
         let profileInitial = String(profile.name.prefix(1)).uppercased()
 
         switch config.iconStyle {
+        case .battery:
+            return renderer.createDefaultAppLogo(isDarkMode: isDarkMode)
+
         case .concentric:
             let secondaryPercentage = config.showWeek ? (renderState.secondaryPercentage ?? 0) : 0
             let secondaryStatus = config.showWeek ? renderState.secondaryStatus : .safe

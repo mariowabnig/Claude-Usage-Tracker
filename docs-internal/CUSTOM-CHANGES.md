@@ -335,6 +335,39 @@ This file helps track what we've changed so upstream merges stay manageable.
 
 ---
 
+## 18. Per-Profile Icon Style in Multi-Profile Mode
+
+**Date:** 2026-04-24
+**Purpose:** Allow each profile to independently choose its menu bar icon style in multi-profile mode, and add a Battery option so profiles can show individual metric bars instead of being forced into a single compact icon.
+
+### Problem
+Multi-profile mode had one global `MultiProfileIconStyle` applied to all profiles. The battery/progress bar styles from the per-profile Darstellung settings were ignored. Users who wanted individual batteries per profile saw concentric circles instead.
+
+### Changes
+
+**Modified:** `Shared/Models/MenuBarIconConfig.swift`
+- Added `.battery` case to `MultiProfileIconStyle` — renders individual metric items per profile using the profile's Darstellung settings
+- Added `multiProfileIconStyle: MultiProfileIconStyle?` to `MenuBarIconConfiguration` — per-profile override, falls back to global `MultiProfileDisplayConfig.iconStyle` when nil
+- Custom Codable with backward compat (decodeIfPresent)
+
+**Modified:** `MenuBar/StatusBarUIManager.swift`
+- `multiProfileItemKeys(for:globalConfig:)` now creates one status item per enabled metric for battery-style profiles (session + week as separate bars), one item per profile for other styles
+- New `renderBatteryMultiProfile()` — uses `MenuBarIconRenderer.createImage()` with the profile's own `MenuBarIconConfiguration` and a 2-letter profile prefix
+- New `renderCompactMultiProfile()` — extracted from the old monolithic loop, handles concentric/progressBar/compact/percentage styles
+- `setupMultiProfile()` and `updateMultiProfileConfiguration()` signatures updated to accept `MultiProfileDisplayConfig`
+
+**Modified:** `MenuBar/MenuBarManager.swift`
+- Updated `setupMultiProfileMode()` and `updateMultiProfileDisplay()` to pass `config` to new signatures
+
+**Modified:** `Views/Settings/App/ManageProfilesView.swift`
+- Replaced global `MultiProfileStylePicker` with per-profile style pickers shown under each selected profile
+- Style picker appears indented below each profile's selection row when the profile is enabled for display
+
+**Modified:** All 9 `Localizable.strings` files
+- Added `multiprofile.style_battery` key (Battery / Batterie / Batería / etc.)
+
+---
+
 ## Files Modified (summary)
 
 | File | Change |
@@ -364,3 +397,6 @@ This file helps track what we've changed so upstream merges stay manageable.
 | `Views/Settings/Credentials/APIBillingView.swift` | Always-visible manual session key section |
 | `Views/Settings/Credentials/PersonalUsageView.swift` | Always-visible manual session key section |
 | `Views/Settings/Credentials/CLIAccountView.swift` | Removed incorrect tracking note |
+| `Shared/Models/MenuBarIconConfig.swift` | `.battery` in `MultiProfileIconStyle`, per-profile `multiProfileIconStyle` override |
+| `MenuBar/StatusBarUIManager.swift` | Per-profile battery rendering in multi-profile mode |
+| `Views/Settings/App/ManageProfilesView.swift` | Per-profile icon style pickers |

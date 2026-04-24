@@ -128,6 +128,7 @@
 "multiprofile.subtitle" = "메뉴 바에 여러 프로필 표시";
 "multiprofile.enable_title" = "여러 프로필 표시";
 "multiprofile.enable_description" = "선택한 프로필을 나란히 작은 아이콘으로 표시";
+"multiprofile.style_battery" = "배터리";
 "multiprofile.style_circles" = "원형";
 "multiprofile.style_bars" = "막대";
 "multiprofile.style_dots" = "점";

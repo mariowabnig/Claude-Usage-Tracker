@@ -521,6 +521,7 @@
 "multiprofile.subtitle" = "Mostrar múltiplos perfis na barra de menu";
 "multiprofile.enable_title" = "Mostrar Múltiplos Perfis";
 "multiprofile.enable_description" = "Exibir perfis selecionados como ícones compactos lado a lado";
+"multiprofile.style_battery" = "Bateria";
 "multiprofile.style_circles" = "Círculos";
 "multiprofile.style_bars" = "Barras";
 "multiprofile.style_dots" = "Pontos";

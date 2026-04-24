@@ -521,6 +521,7 @@
 "multiprofile.subtitle" = "Mostra più profili nella barra dei menu";
 "multiprofile.enable_title" = "Mostra Più Profili";
 "multiprofile.enable_description" = "Mostra i profili selezionati come icone compatte affiancate";
+"multiprofile.style_battery" = "Batteria";
 "multiprofile.style_circles" = "Cerchi";
 "multiprofile.style_bars" = "Barre";
 "multiprofile.style_dots" = "Punti";

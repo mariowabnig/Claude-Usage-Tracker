@@ -959,6 +959,7 @@ class MenuBarManager: NSObject, ObservableObject {
 
         statusBarUIManager?.setupMultiProfile(
             profiles: selectedProfiles,
+            config: config,
             target: self,
             action: #selector(togglePopover)
         )
@@ -986,6 +987,7 @@ class MenuBarManager: NSObject, ObservableObject {
 
         statusBarUIManager?.updateMultiProfileConfiguration(
             profiles: selectedProfiles,
+            config: config,
             target: self,
             action: #selector(togglePopover)
         )

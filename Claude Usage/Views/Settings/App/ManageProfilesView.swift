@@ -79,22 +79,38 @@ struct ManageProfilesView: View {
                                     .foregroundColor(.secondary)
 
                                 ForEach(profileManager.profiles) { profile in
-                                    ProfileSelectionRow(
-                                        profile: profile,
-                                        isSelected: profile.isSelectedForDisplay,
-                                        isActive: profileManager.activeProfile?.id == profile.id,
-                                        onToggle: {
-                                            // Ensure at least one profile stays selected
-                                            let selectedCount = profileManager.profiles.filter { $0.isSelectedForDisplay }.count
-                                            if profile.isSelectedForDisplay && selectedCount <= 1 {
-                                                // Can't deselect the last one
-                                                return
+                                    VStack(alignment: .leading, spacing: 6) {
+                                        ProfileSelectionRow(
+                                            profile: profile,
+                                            isSelected: profile.isSelectedForDisplay,
+                                            isActive: profileManager.activeProfile?.id == profile.id,
+                                            onToggle: {
+                                                let selectedCount = profileManager.profiles.filter { $0.isSelectedForDisplay }.count
+                                                if profile.isSelectedForDisplay && selectedCount <= 1 {
+                                                    return
+                                                }
+                                                profileManager.toggleProfileSelection(profile.id)
+                                                NotificationCenter.default.post(name: .multiProfileConfigChanged, object: nil)
                                             }
-                                            profileManager.toggleProfileSelection(profile.id)
-                                            // Post notification for menu bar to update incrementally
-                                            NotificationCenter.default.post(name: .multiProfileConfigChanged, object: nil)
+                                        )
+
+                                        if profile.isSelectedForDisplay {
+                                            MultiProfileStylePicker(
+                                                selectedStyle: Binding(
+                                                    get: {
+                                                        profile.iconConfig.multiProfileIconStyle ?? profileManager.multiProfileConfig.iconStyle
+                                                    },
+                                                    set: { newStyle in
+                                                        var config = profile.iconConfig
+                                                        config.multiProfileIconStyle = newStyle
+                                                        profileManager.updateIconConfig(config, for: profile.id)
+                                                        NotificationCenter.default.post(name: .multiProfileConfigChanged, object: nil)
+                                                    }
+                                                )
+                                            )
+                                            .padding(.leading, 28)
                                         }
-                                    )
+                                    }
                                 }
 
                                 // Warning if trying to deselect last profile
@@ -113,26 +129,6 @@ struct ManageProfilesView: View {
 
                             Divider()
                                 .padding(.vertical, DesignTokens.Spacing.small)
-
-                            // Icon Style Picker
-                            VStack(alignment: .leading, spacing: DesignTokens.Spacing.small) {
-                                Text("multiprofile.icon_style".localized)
-                                    .font(DesignTokens.Typography.caption)
-                                    .foregroundColor(.secondary)
-
-                                MultiProfileStylePicker(
-                                    selectedStyle: Binding(
-                                        get: { profileManager.multiProfileConfig.iconStyle },
-                                        set: { newStyle in
-                                            var config = profileManager.multiProfileConfig
-                                            config.iconStyle = newStyle
-                                            profileManager.updateMultiProfileConfig(config)
-                                            NotificationCenter.default.post(name: .multiProfileConfigChanged, object: nil)
-                                        }
-                                    )
-                                )
-                            }
-                            .frame(maxWidth: .infinity, alignment: .leading)
 
                             // Show Week Toggle
                             SettingToggle(

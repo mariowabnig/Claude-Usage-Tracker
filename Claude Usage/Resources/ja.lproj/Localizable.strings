@@ -523,6 +523,7 @@
 "multiprofile.subtitle" = "メニューバーに複数のプロファイルを表示";
 "multiprofile.enable_title" = "複数プロファイルを表示";
 "multiprofile.enable_description" = "選択したプロファイルをコンパクトなアイコンとして並べて表示";
+"multiprofile.style_battery" = "バッテリー";
 "multiprofile.style_circles" = "円";
 "multiprofile.style_bars" = "バー";
 "multiprofile.style_dots" = "ドット";
