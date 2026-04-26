@@ -1,3 +1,5 @@
+@AGENTS.md
+
 # Claude Usage Tracker
 
 > **Required Reading:** See [ARCHITECTURE.md](ARCHITECTURE.md) for full app structure, data flow, modules, and gotchas.
