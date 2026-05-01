@@ -12,6 +12,11 @@ This repository is prepared for both Codex and Claude Code. Keep durable project
 - [SECURITY.md](SECURITY.md) — security policy.
 - [docs/AGENT_GUIDE.md](docs/AGENT_GUIDE.md) — agent guide.
 
+### Legacy Guidance
+- Read `CLAUDE.md` in this directory for project guidance that has not been migrated yet.
+- Translate Claude-specific tool, memory, slash-command, or subagent wording to Codex equivalents.
+- Do not edit `CLAUDE.md` unless the user explicitly asks to migrate or update Claude guidance.
+
 ### Common Commands
 - Xcode project: inspect schemes with `xcodebuild -list -project Claude Usage.xcodeproj` before building.
 

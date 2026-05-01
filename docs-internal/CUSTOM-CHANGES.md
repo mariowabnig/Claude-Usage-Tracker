@@ -368,6 +368,35 @@ Multi-profile mode had one global `MultiProfileIconStyle` applied to all profile
 
 ---
 
+## 17. Single-Profile Peak Visual Scope Fix
+
+**Date:** 2026-04-30
+**Purpose:** Menu bar progress bars looked unfamiliar during peak hours because single-profile rendering still applied Anthropic peak-hour visuals by default. Multi-profile mode was already scoped correctly.
+
+### Root cause
+- `MenuBarIconRenderer.createImage()` defaults `showPeakEffects` to `true`
+- Single-profile status bar updates did not pass a provider-specific value, so non-Claude active profiles could inherit Claude peak styling/tooltips during the peak window
+- This was noticed in Vienna during the active peak-hours window on April 30, 2026
+
+### Changes
+
+**Modified:** `MenuBar/StatusBarUIManager.swift`
+- Single-profile `updateAllButtons()` and `updateButton()` now pass `showPeakEffects: profile?.providerKind == .claude`
+- Peak-hour tooltips are only used for Claude profiles; non-Claude profiles show a plain usage tooltip
+- Keeps behavior aligned with the existing multi-profile provider gating from change #14
+
+**Modified:** `Views/CommandPaletteView.swift`
+- Fixed compile blockers encountered during reinstall:
+  - Color-mode commands now use `MenuBarColorMode` instead of `StatuslineColorMode`
+  - Replaced SwiftUI `.tertiaryLabel` references with `Color(nsColor: .tertiaryLabelColor)`
+
+**Verification**
+- Ran `./scripts/build-and-install.sh`
+- Build succeeded, `/Applications/Claude Usage.app` was replaced, and the app relaunched
+- Xcode still prints a CoreSimulator version warning, but it does not block the macOS app build
+
+---
+
 ## Files Modified (summary)
 
 | File | Change |
@@ -400,3 +429,5 @@ Multi-profile mode had one global `MultiProfileIconStyle` applied to all profile
 | `Shared/Models/MenuBarIconConfig.swift` | `.battery` in `MultiProfileIconStyle`, per-profile `multiProfileIconStyle` override |
 | `MenuBar/StatusBarUIManager.swift` | Per-profile battery rendering in multi-profile mode |
 | `Views/Settings/App/ManageProfilesView.swift` | Per-profile icon style pickers |
+| `MenuBar/StatusBarUIManager.swift` | Single-profile peak visuals/tooltips scoped to Claude only |
+| `Views/CommandPaletteView.swift` | Command palette compile fixes for reinstall |

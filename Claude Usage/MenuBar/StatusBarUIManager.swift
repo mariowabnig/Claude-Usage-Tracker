@@ -826,6 +826,7 @@ final class StatusBarUIManager {
         // Get config from active profile
         let profile = ProfileManager.shared.activeProfile
         let config = profile?.iconConfig ?? .default
+        let showPeakEffects = profile?.providerKind == .claude
 
         // Check if we should show default logo (no usage credentials OR no enabled metrics)
         let hasUsageCredentials = hasRenderableUsageCredentials(for: profile)
@@ -863,7 +864,8 @@ final class StatusBarUIManager {
                 colorMode: config.colorMode,
                 singleColorHex: config.singleColorHex,
                 showIconName: config.showIconNames,
-                showNextSessionTime: metricConfig.showNextSessionTime
+                showNextSessionTime: metricConfig.showNextSessionTime,
+                showPeakEffects: showPeakEffects
             )
 
             image.isTemplate = config.colorMode == .monochrome && !config.showPaceMarker
@@ -877,7 +879,9 @@ final class StatusBarUIManager {
             case .week: pct = Int(usage.weeklyPercentage)
             case .api: pct = Int(apiUsage?.usagePercentage ?? 0)
             }
-            button.toolTip = PeakHoursHelper.tooltip(metricName: metricName, percentage: pct)
+            button.toolTip = showPeakEffects
+                ? PeakHoursHelper.tooltip(metricName: metricName, percentage: pct)
+                : "\(metricName): \(pct)%"
         }
     }
 
@@ -976,7 +980,9 @@ final class StatusBarUIManager {
         }
 
         // Get config from active profile
-        let config = ProfileManager.shared.activeProfile?.iconConfig ?? .default
+        let profile = ProfileManager.shared.activeProfile
+        let config = profile?.iconConfig ?? .default
+        let showPeakEffects = profile?.providerKind == .claude
         guard let metricConfig = config.config(for: metricType) else {
             return
         }
@@ -995,7 +1001,8 @@ final class StatusBarUIManager {
             colorMode: config.colorMode,
             singleColorHex: config.singleColorHex,
             showIconName: config.showIconNames,
-            showNextSessionTime: metricConfig.showNextSessionTime
+            showNextSessionTime: metricConfig.showNextSessionTime,
+            showPeakEffects: showPeakEffects
         )
 
         image.isTemplate = config.colorMode == .monochrome && !config.showPaceMarker
@@ -1008,7 +1015,9 @@ final class StatusBarUIManager {
         case .week: pct = Int(usage.weeklyPercentage)
         case .api: pct = Int(apiUsage?.usagePercentage ?? 0)
         }
-        button.toolTip = PeakHoursHelper.tooltip(metricName: metricName, percentage: pct)
+        button.toolTip = showPeakEffects
+            ? PeakHoursHelper.tooltip(metricName: metricName, percentage: pct)
+            : "\(metricName): \(pct)%"
     }
 
     /// Get button for a specific metric (used for popover positioning)
