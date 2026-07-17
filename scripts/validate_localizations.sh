@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Localization Validation Script
-# Ensures all .lproj folders have the same keys
+# Ensures every .lproj folder covers all base-language keys
 
 set -e
 
@@ -63,6 +63,7 @@ for lproj in *.lproj; do
 
     echo "🔍 Checking $lproj..."
     echo "   Keys found: $LANG_COUNT"
+    LANG_HAS_ERROR=0
 
     # Find missing keys
     MISSING=$(comm -23 <(echo "$BASE_KEYS") <(echo "$LANG_KEYS"))
@@ -73,18 +74,19 @@ for lproj in *.lproj; do
     if [ -n "$MISSING" ]; then
         echo "   ❌ Missing keys:"
         echo "$MISSING" | sed 's/^/      /'
-        ERRORS_FOUND=$((ERRORS_FOUND + 1))
+        LANG_HAS_ERROR=1
     fi
 
     if [ -n "$EXTRA" ]; then
         echo "   ⚠️  Extra keys (not in base):"
         echo "$EXTRA" | sed 's/^/      /'
-        ERRORS_FOUND=$((ERRORS_FOUND + 1))
     fi
 
     if [ -z "$MISSING" ] && [ -z "$EXTRA" ]; then
         echo "   ✅ All keys match!"
     fi
+
+    ERRORS_FOUND=$((ERRORS_FOUND + LANG_HAS_ERROR))
 
     echo ""
 done

@@ -941,3 +941,59 @@
 "notifications.sound.default" = "默认";
 "notifications.sound.none" = "无";
 "notifications.sound.preview" = "预览声音";
+
+// MARK: - Shared and Menu Bar Additions
+"about.contributors_failed" = "无法加载贡献者";
+"appearance.not_active_profile" = "不是当前配置文件";
+"appearance.not_selected_for_display" = "未选择用于显示";
+"common.retry" = "重试";
+"menubar.api_cost" = "API 费用";
+"menubar.this_month" = "本月";
+"menubar.total" = "总计";
+"menubar.cost_source.cli" = "Claude Code";
+"menubar.cost_source.api" = "API";
+"menubar.cost_source.unknown" = "其他";
+
+// MARK: - Peak Hours
+"peak.banner.ends_in" = "高峰时段 — %@ 后结束（%@）";
+"peak.banner.starts_in" = "%@ 后进入高峰时段（%@）";
+"peak.footer.schedule" = "高峰：%@ 周一至周五";
+"peak.footer.no_peak_today" = "今天没有高峰时段";
+"peak.footer.starts_in" = "%@ 后开始";
+"peak.footer.ends_in" = "%@ 后结束";
+"peak.notification.title" = "高峰时段即将开始";
+"peak.notification.body" = "高峰时段将于 %@ 开始，使用成本会更高。现在进行高负载工作更划算。";
+"peak.pace.much_faster" = "▸ 你可以快得多";
+"peak.pace.faster" = "▸ 你可以加快到 %.1fx";
+"peak.pace.perfect" = "▸ 达到 100%% 的完美节奏";
+"peak.pace.slow_down" = "▸ 降至当前节奏的 %d%%";
+"peak.trend.same" = "≈ 与上周相同";
+"peak.trend.more" = "↑ 比上周多 %d%%";
+"peak.trend.less" = "↓ 比上周少 %d%%";
+"peak.tooltip.peak_active" = "高峰时段进行中 — %@ 结束";
+"peak.tooltip.usage" = "%@：已使用 %d%%";
+
+// MARK: - Command Palette
+"command_palette.placeholder" = "搜索命令…";
+"command_palette.no_results" = "没有匹配的命令";
+"command_palette.back" = "返回";
+"command_palette.hint_enter" = "选择";
+"command_palette.category.actions" = "操作";
+"command_palette.category.profiles" = "配置文件";
+"command_palette.category.settings" = "设置";
+"command_palette.category.window" = "窗口";
+"command_palette.category.updates" = "更新";
+"command_palette.refresh_now" = "立即刷新";
+"command_palette.force_refresh_all" = "强制刷新所有配置文件";
+"command_palette.copy_usage" = "将使用量复制到剪贴板";
+"command_palette.switch_profile" = "切换当前配置文件";
+"command_palette.create_profile" = "创建配置文件";
+"command_palette.edit_profile" = "编辑配置文件";
+"command_palette.icon_style" = "切换图标样式";
+"command_palette.color_mode" = "切换颜色模式";
+"command_palette.switch_language" = "切换语言";
+"command_palette.open_settings" = "打开设置";
+"command_palette.close_settings" = "关闭设置";
+"command_palette.detach_popover" = "分离弹出窗口";
+"command_palette.open_feedback" = "打开反馈窗口";
+"command_palette.check_updates" = "检查更新";

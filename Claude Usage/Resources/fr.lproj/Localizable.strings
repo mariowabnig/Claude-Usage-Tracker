@@ -935,3 +935,59 @@
 "notifications.sound.default" = "Par défaut";
 "notifications.sound.none" = "Aucun";
 "notifications.sound.preview" = "Aperçu du son";
+
+// MARK: - Shared and Menu Bar Additions
+"about.contributors_failed" = "Impossible de charger les contributeurs";
+"appearance.not_active_profile" = "Ce profil n’est pas actif";
+"appearance.not_selected_for_display" = "Non sélectionné pour l’affichage";
+"common.retry" = "Réessayer";
+"menubar.api_cost" = "Coût de l’API";
+"menubar.this_month" = "Ce mois-ci";
+"menubar.total" = "Total";
+"menubar.cost_source.cli" = "Claude Code";
+"menubar.cost_source.api" = "API";
+"menubar.cost_source.unknown" = "Autre";
+
+// MARK: - Peak Hours
+"peak.banner.ends_in" = "Heures de pointe — fin dans %@ (%@)";
+"peak.banner.starts_in" = "Heures de pointe dans %@ (%@)";
+"peak.footer.schedule" = "Pointe : %@ lun–ven";
+"peak.footer.no_peak_today" = "Aucune heure de pointe aujourd’hui";
+"peak.footer.starts_in" = "début dans %@";
+"peak.footer.ends_in" = "fin dans %@";
+"peak.notification.title" = "Les heures de pointe commencent bientôt";
+"peak.notification.body" = "Les heures de pointe commencent à %@ — l’utilisation coûtera plus cher. Les tâches intensives coûtent moins cher maintenant.";
+"peak.pace.much_faster" = "▸ Vous pouvez aller beaucoup plus vite";
+"peak.pace.faster" = "▸ Vous pouvez aller %.1fx plus vite";
+"peak.pace.perfect" = "▸ Rythme parfait pour 100%%";
+"peak.pace.slow_down" = "▸ Ralentissez à %d%% du rythme actuel";
+"peak.trend.same" = "≈ comme la semaine dernière";
+"peak.trend.more" = "↑ %d%% de plus que la semaine dernière";
+"peak.trend.less" = "↓ %d%% de moins que la semaine dernière";
+"peak.tooltip.peak_active" = "Heures de pointe actives — fin %@";
+"peak.tooltip.usage" = "%@ : %d%% utilisés";
+
+// MARK: - Command Palette
+"command_palette.placeholder" = "Rechercher des commandes…";
+"command_palette.no_results" = "Aucune commande correspondante";
+"command_palette.back" = "Retour";
+"command_palette.hint_enter" = "sélectionner";
+"command_palette.category.actions" = "Actions";
+"command_palette.category.profiles" = "Profils";
+"command_palette.category.settings" = "Réglages";
+"command_palette.category.window" = "Fenêtre";
+"command_palette.category.updates" = "Mises à jour";
+"command_palette.refresh_now" = "Actualiser maintenant";
+"command_palette.force_refresh_all" = "Forcer l’actualisation de tous les profils";
+"command_palette.copy_usage" = "Copier l’utilisation dans le presse-papiers";
+"command_palette.switch_profile" = "Changer de profil actif";
+"command_palette.create_profile" = "Créer un profil";
+"command_palette.edit_profile" = "Modifier le profil";
+"command_palette.icon_style" = "Changer le style de l’icône";
+"command_palette.color_mode" = "Changer le mode de couleur";
+"command_palette.switch_language" = "Changer de langue";
+"command_palette.open_settings" = "Ouvrir les réglages";
+"command_palette.close_settings" = "Fermer les réglages";
+"command_palette.detach_popover" = "Détacher le popover";
+"command_palette.open_feedback" = "Ouvrir la fenêtre de commentaires";
+"command_palette.check_updates" = "Rechercher des mises à jour";

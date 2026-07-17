@@ -1006,3 +1006,13 @@
 "command_palette.detach_popover" = "Popover lösen";
 "command_palette.open_feedback" = "Feedback-Fenster öffnen";
 "command_palette.check_updates" = "Nach Updates suchen";
+
+// MARK: - Shared and Menu Bar Additions
+"about.contributors_failed" = "Mitwirkende konnten nicht geladen werden";
+"common.retry" = "Erneut versuchen";
+"menubar.api_cost" = "API-Kosten";
+"menubar.this_month" = "Dieser Monat";
+"menubar.total" = "Gesamt";
+"menubar.cost_source.cli" = "Claude Code";
+"menubar.cost_source.api" = "API";
+"menubar.cost_source.unknown" = "Sonstige";
