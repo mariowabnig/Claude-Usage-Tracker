@@ -25,9 +25,22 @@
 		05CD2CC02EA985A100004C83 /* Claude UsageTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "Claude UsageTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		05CD2CD02F20000100004C83 /* Exceptions for "Claude Usage" folder in "Claude Usage" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Resources/Info.plist,
+			);
+			target = 05CD2CB12EA985A100004C83 /* Claude Usage */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		05CD2CB42EA985A100004C83 /* Claude Usage */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				05CD2CD02F20000100004C83 /* Exceptions for "Claude Usage" folder in "Claude Usage" target */,
+			);
 			path = "Claude Usage";
 			sourceTree = "<group>";
 		};

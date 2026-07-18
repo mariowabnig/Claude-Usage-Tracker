@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Xcode resource membership**: Excluded the target's `Info.plist` from synchronized resource copying so builds no longer warn that the file is copied into the app bundle twice.
 - **Selective upstream sync (safe batch)**: Pulled in low-risk upstream fixes for Claude session authentication, keychain resilience, sign-in UX, and localization without doing a destructive full merge.
 - **Claude session auth (E3000)**: Added browser-compatible `User-Agent`, `Referer`, and `Origin` headers to `claude.ai` session-key requests so valid Claude.ai sessions no longer fail server-side validation.
 - **Keychain launch hangs**: Bounded `/usr/bin/security` subprocess calls with hard timeouts in `ClaudeCodeSyncService`, preventing startup freezes when macOS keychain access stalls.
