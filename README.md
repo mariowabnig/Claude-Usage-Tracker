@@ -92,6 +92,8 @@ Claude Usage Tracker is a lightweight, native macOS menu bar application for mon
 
 ## Getting Started
 
+**Fork credential migration:** The September 2026 audit fixes move saved profile secrets into the macOS login Keychain on next launch. Migration verifies the secure copy before removing old preferences. macOS may request Keychain access after a rebuild; failed access preserves the previous save. Automatic CLI sync only refreshes a provably matching login—reconnect a profile explicitly when its account identity cannot be established. See [Security](SECURITY.md).
+
 ### Prerequisites
 
 Before installing Claude Usage Tracker, ensure you have:

@@ -5,6 +5,20 @@ This file helps track what we've changed so upstream merges stay manageable.
 
 ---
 
+## Audit fixes — 2026-09-06
+
+Supersedes the peak-hour behavior described in historical entries below.
+
+- Profile credential vault with verified, crash-safe revisions and migration from `profiles_v3` to redacted `profiles_v4` metadata. Failed migration preserves the original; failed secure reads block destructive writes. Uses the encrypted login Keychain, with normal macOS ACLs, for compatibility with unsigned fork builds.
+- Automatic startup/pre-switch CLI sync and usage fallback only accept proven token continuity. If both tokens rotated or identity is absent, the user must explicitly reconnect; profile names/current selection never prove identity.
+- One refresh implementation for single/multi/popover modes. Request generations and credential checks discard obsolete responses. The initiating profile owns all cached usage/history; current selection controls only display. Errors retain successful data and do not advance the success timestamp.
+- Removed obsolete hardcoded peak-hour visuals, notifications, countdown timers, and translations. Kept provider-based usage, pace markers, and historical trends.
+- Isolated test hosts from real startup/migration; added in-memory vault, mock HTTP, account-isolation, and asynchronous coordinator regressions. Cleaned actor-isolation/deprecation warnings and orphan Korean keys.
+
+Validation and implementation details: [September audit fixes](done/2026-09-06-audit-fixes.md).
+
+---
+
 ## 1. Peak Hours Visual Indicator
 
 **Date:** 2026-03-30

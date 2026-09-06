@@ -56,7 +56,8 @@ Claude-Usage-Tracker/
 │       │   │   ├── CopilotUsageProviderFetcher.swift
 │       │   │   └── ClaudeUsageSnapshotAdapter.swift
 │       │   ├── ProfileManager.swift      # Multi-profile CRUD + active profile
-│       │   ├── KeychainService.swift     # Secure credential storage
+│       │   ├── KeychainService.swift     # Legacy keychain helpers
+│       │   ├── ProfileKeychainVault.swift # Encrypted login Keychain vault
 │       │   ├── NotificationManager.swift # UNUserNotification triggers
 │       │   ├── StatuslineService.swift   # Terminal statusline output
 │       │   └── UpdateManager.swift       # Sparkle integration
@@ -65,7 +66,6 @@ Claude-Usage-Tracker/
 │       │   ├── ProfileStore.swift        # Profiles + active profile id
 │       │   └── SharedDataStore.swift     # App-wide settings (language, shortcuts, …)
 │       └── Utilities/
-│           ├── PeakHoursHelper.swift     # Peak-hours detection + notifications
 │           ├── PaceStatus.swift          # Pace guidance (faster/slower)
 │           ├── UsageStatusCalculator.swift
 │           └── URLBuilder.swift
@@ -90,18 +90,17 @@ Claude-Usage-Tracker/
 | `MenuBarIconRenderer` | Renders custom `NSImage` for each icon style (battery, progress bar, percentage, icon+ring, compact) |
 | `UsageRefreshCoordinator` | Protocol-driven timer (`APIServiceProtocol`); fetches usage + status in parallel |
 | `ProfileManager` | Singleton; loads/saves profiles; manages active profile; syncs CLI OAuth tokens |
-| `DataStore` / `ProfileStore` / `SharedDataStore` | Thin UserDefaults wrappers; separated by scope (usage data / profile list / global settings) |
+| `DataStore` / `ProfileStore` / `SharedDataStore` | Usage/settings persistence; `ProfileStore` coordinates redacted preferences with the encrypted credential vault. |
 | `ClaudeAPIService` | Fetches session usage via claude.ai cookie auth; Console API billing via API key |
 | `ClaudeCodeSyncService` | Reads CLI OAuth from `~/.claude/.credentials.json` → system Keychain fallback chain |
 | `UsageProviderFetcher` (protocol) | Implemented by Claude/Codex/Copilot fetchers; all return `ProviderUsageSnapshot` |
-| `PeakHoursHelper` | Detects Anthropic peak hours (Mon–Fri 05:00–11:00 PT); sends 15-min-ahead notification |
 | `PaceStatus` | Calculates whether user is on track to hit 100% by reset; shown in popover |
 
 ## Data Flow
 
 ```
 Credentials
-  (Keychain / ~/.claude/.credentials.json / UserDefaults)
+  (login Keychain vault / provider CLI authentication stores)
           │
           ▼
   ClaudeCodeSyncService / KeychainService
@@ -118,7 +117,9 @@ Credentials
                      └──► SettingsView (modal)
 ```
 
-**Refresh cycle:** `UsageRefreshCoordinator` fires on a per-profile timer (default 30 s). On each tick it calls `fetchUsage()` and `fetchStatus()` concurrently. Results are saved to `DataStore` and pushed to `MenuBarManager` via delegate callbacks. `NotificationManager` checks thresholds after every successful fetch.
+**Refresh cycle:** `MenuBarManager` drives the per-profile timer (default 30 s). Single-profile, multi-profile, and popover refreshes all use `refreshProfiles`. Status is fetched concurrently with usage. `ProfileRefreshTracker` assigns generations per profile and rejects results after credential changes, deletion, or a newer request. Cache/history saves use the initiating profile ID; only the current profile updates the main display. Provider failures propagate to error state and retain the last successful data. Partial batch failures do not advance the success timestamp.
+
+**Credential persistence:** `ProfileStore` stores redacted metadata in `profiles_v4` preferences and credentials in `ProfileKeychainVault`. Each credential change writes and verifies an immutable vault revision before publishing its metadata; the prior revision survives until commit. Old `profiles_v3` plaintext data is removed only after successful migration. Locked/unavailable Keychain reads prevent redacted profiles from overwriting secrets. Metadata/usage-only saves reuse the existing vault revision. The login Keychain works for unsigned builds, but its normal ACL can require approval after rebuilding the app. No plaintext fallback is created.
 
 **Multi-profile:** `MenuBarManager` iterates `ProfileManager.profiles` that have `isSelectedForDisplay = true`, creates one `NSStatusItem` per profile in multi mode, or a single aggregated item in single mode.
 
@@ -129,7 +130,7 @@ Credentials
 | Protocol-backed services | `APIServiceProtocol`, `UsageProviderFetcher`, `StorageProvider`, `NotificationServiceProtocol` — enables mock injection in tests |
 | `@MainActor` on fetchers | All `UsageProviderFetcher` implementations run on main actor to safely update `@Published` state |
 | Singleton singletons | `ProfileManager.shared`, `DataStore.shared`, `SharedDataStore.shared`, `ClaudeCodeSyncService.shared` — app-wide singletons, not injected |
-| Credential priority chain | Claude fetcher tries: session key → profile CLI JSON → system Keychain CLI JSON |
+| Credential priority chain | Claude fetcher tries: session key → profile CLI JSON → system CLI JSON only when token continuity proves the same login. Unknown identity requires explicit reconnect. |
 | `ProviderUsageSnapshot` | Provider-neutral DTO; all provider fetchers produce it; popover consumes it uniformly |
 | Fork tracking | `docs-internal/CUSTOM-CHANGES.md` documents every deviation from upstream for clean merges |
 | Design tokens | `DesignSystem/` folder with `SettingsColors`, `Spacing`, `Typography`, `DesignTokens` — used throughout settings views |
@@ -141,5 +142,5 @@ Credentials
 - **Headless Mac / Remote Desktop**: `NSStatusItem` may fail to initialize if no display is attached at launch. `AppDelegate` retries after 3 s when screens become available.
 - **Dock icon flicker**: App runs as `.accessory` (no dock icon) but temporarily switches to `.regular` during the setup wizard window, then back to `.accessory` on close.
 - **`statusLevel` deprecated**: `ClaudeUsage.statusLevel` is `@available(*, deprecated)` — use `UsageStatusCalculator.calculateStatus()` instead.
-- **Peak hours stripes**: diagonal amber stripes on menu bar icon + popover bars are a fork-only feature (not in upstream). Logic lives in `PeakHoursHelper` + `MenuBarIconRenderer`.
-- **`UsageRefreshCoordinator` vs `MenuBarManager` refresh**: there are two refresh paths; `MenuBarManager` has its own `refreshTimer` (legacy) and also owns a `UsageRefreshCoordinator`. Check which is active for a given profile mode.
+- **Legacy coordinator**: `UsageRefreshCoordinator` remains in the tree, but the current menu bar refresh flow is owned by `MenuBarManager.refreshProfiles`.
+- **Peak policy**: No hardcoded peak-hour penalties or alerts are shown. Anthropic removed the Claude Code Pro/Max reduction on May 6, 2026; usage percentages remain sourced from provider APIs.

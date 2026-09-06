@@ -954,15 +954,7 @@
 "menubar.cost_source.api" = "API";
 "menubar.cost_source.unknown" = "其他";
 
-// MARK: - Peak Hours
-"peak.banner.ends_in" = "高峰时段 — %@ 后结束（%@）";
-"peak.banner.starts_in" = "%@ 后进入高峰时段（%@）";
-"peak.footer.schedule" = "高峰：%@ 周一至周五";
-"peak.footer.no_peak_today" = "今天没有高峰时段";
-"peak.footer.starts_in" = "%@ 后开始";
-"peak.footer.ends_in" = "%@ 后结束";
-"peak.notification.title" = "高峰时段即将开始";
-"peak.notification.body" = "高峰时段将于 %@ 开始，使用成本会更高。现在进行高负载工作更划算。";
+// MARK: - Usage Pace and Trend
 "peak.pace.much_faster" = "▸ 你可以快得多";
 "peak.pace.faster" = "▸ 你可以加快到 %.1fx";
 "peak.pace.perfect" = "▸ 达到 100%% 的完美节奏";
@@ -970,8 +962,6 @@
 "peak.trend.same" = "≈ 与上周相同";
 "peak.trend.more" = "↑ 比上周多 %d%%";
 "peak.trend.less" = "↓ 比上周少 %d%%";
-"peak.tooltip.peak_active" = "高峰时段进行中 — %@ 结束";
-"peak.tooltip.usage" = "%@：已使用 %d%%";
 
 // MARK: - Command Palette
 "command_palette.placeholder" = "搜索命令…";

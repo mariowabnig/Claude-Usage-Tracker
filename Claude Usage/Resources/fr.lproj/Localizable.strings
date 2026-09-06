@@ -948,15 +948,7 @@
 "menubar.cost_source.api" = "API";
 "menubar.cost_source.unknown" = "Autre";
 
-// MARK: - Peak Hours
-"peak.banner.ends_in" = "Heures de pointe — fin dans %@ (%@)";
-"peak.banner.starts_in" = "Heures de pointe dans %@ (%@)";
-"peak.footer.schedule" = "Pointe : %@ lun–ven";
-"peak.footer.no_peak_today" = "Aucune heure de pointe aujourd’hui";
-"peak.footer.starts_in" = "début dans %@";
-"peak.footer.ends_in" = "fin dans %@";
-"peak.notification.title" = "Les heures de pointe commencent bientôt";
-"peak.notification.body" = "Les heures de pointe commencent à %@ — l’utilisation coûtera plus cher. Les tâches intensives coûtent moins cher maintenant.";
+// MARK: - Usage Pace and Trend
 "peak.pace.much_faster" = "▸ Vous pouvez aller beaucoup plus vite";
 "peak.pace.faster" = "▸ Vous pouvez aller %.1fx plus vite";
 "peak.pace.perfect" = "▸ Rythme parfait pour 100%%";
@@ -964,8 +956,6 @@
 "peak.trend.same" = "≈ comme la semaine dernière";
 "peak.trend.more" = "↑ %d%% de plus que la semaine dernière";
 "peak.trend.less" = "↓ %d%% de moins que la semaine dernière";
-"peak.tooltip.peak_active" = "Heures de pointe actives — fin %@";
-"peak.tooltip.usage" = "%@ : %d%% utilisés";
 
 // MARK: - Command Palette
 "command_palette.placeholder" = "Rechercher des commandes…";

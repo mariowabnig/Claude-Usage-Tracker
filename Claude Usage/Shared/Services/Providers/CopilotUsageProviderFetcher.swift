@@ -28,18 +28,7 @@ class CopilotUsageProviderFetcher: UsageProviderFetcher {
         let token = (savedToken?.isEmpty == false ? savedToken : nil) ?? cliToken
 
         guard let token else {
-            return ProviderUsageSnapshot(
-                provider: .copilot,
-                title: "Copilot",
-                subtitle: "Not connected",
-                primaryRows: [],
-                secondaryCards: [
-                    ProviderSupplementaryCard(
-                        id: "copilot-status",
-                        kind: .providerStatus(connected: false, statusText: "GitHub auth not configured")
-                    )
-                ]
-            )
+            throw AppError(code: .apiUnauthorized, message: "GitHub authentication is unavailable.")
         }
 
         do {
@@ -120,19 +109,7 @@ class CopilotUsageProviderFetcher: UsageProviderFetcher {
             )
         } catch {
             LoggingService.shared.logError("Copilot usage fetch failed: \(error.localizedDescription)")
-            return ProviderUsageSnapshot(
-                provider: .copilot,
-                title: "Copilot",
-                subtitle: "Connection issue",
-                primaryRows: [],
-                secondaryCards: [
-                    ProviderSupplementaryCard(
-                        id: "copilot-status",
-                        kind: .providerStatus(connected: false, statusText: "Usage fetch failed")
-                    )
-                ],
-                fetchedAt: Date()
-            )
+            throw error
         }
     }
 
@@ -153,9 +130,10 @@ class CopilotUsageProviderFetcher: UsageProviderFetcher {
         }
 
         guard (200...299).contains(httpResponse.statusCode) else {
-            throw URLError(httpResponse.statusCode == 401 || httpResponse.statusCode == 403
-                ? .userAuthenticationRequired
-                : .badServerResponse)
+            if httpResponse.statusCode == 401 || httpResponse.statusCode == 403 {
+                throw AppError(code: .apiUnauthorized, message: "GitHub authentication was rejected. Reconnect your account.")
+            }
+            throw URLError(.badServerResponse)
         }
 
         return try JSONDecoder().decode(CopilotUsageAPIResponse.self, from: data)

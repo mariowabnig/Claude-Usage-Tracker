@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Account isolation**: Automatic CLI sync and fallback now require matching token continuity; unrelated logins cannot overwrite other profiles.
+- **Credential storage**: Migrate profile secrets into the encrypted macOS login Keychain, verifying the copy before removing plaintext preferences. Preserve the previous save if Keychain access fails.
+- **Refresh correctness**: Consolidate single/multi-profile refreshes, reject stale responses, and save results under the initiating account. Codex/Copilot errors retain cached data and report failure; partial batch failures no longer count as successful refreshes.
+- **Obsolete peak policy**: Remove hardcoded peak-hour banners, stripes, countdowns, tooltips, and notifications following Anthropic's May 6 removal for Claude Code Pro/Max.
+- **Validation**: Add isolated credential migration, provider failure, and refresh race regression tests; fix test actor isolation and stale assertions; remove unused Korean localization keys.
+
 - **Xcode resource membership**: Excluded the target's `Info.plist` from synchronized resource copying so builds no longer warn that the file is copied into the app bundle twice.
 - **Selective upstream sync (safe batch)**: Pulled in low-risk upstream fixes for Claude session authentication, keychain resilience, sign-in UX, and localization without doing a destructive full merge.
 - **Claude session auth (E3000)**: Added browser-compatible `User-Agent`, `Referer`, and `Origin` headers to `claude.ai` session-key requests so valid Claude.ai sessions no longer fail server-side validation.
@@ -17,7 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Menu bar stability**: Multi-profile visual setting changes now update status items incrementally instead of destroying and recreating them, preserving menu bar placement more reliably.
 - **Stable status item identity**: Added stable `autosaveName` values for single-profile metrics, multi-profile items, and default-logo status items to improve persistence across restarts and legitimate reconfiguration.
 - **Popover safety**: Fixed the profile-switch popover race by using synchronous close behavior, improved popover sizing/positioning, and avoided detached-window layout cycles by using a window-specific hosting controller.
-- **Claude CLI fallback gating**: Active Claude profiles can now render and refresh using valid system Keychain CLI credentials even when profile-local usage credentials are absent.
+- **Claude CLI fallback gating**: System CLI fallback requires a matching saved login; unknown identities must be explicitly connected to a profile.
 - **Single-profile non-Claude rendering**: Preserved the fork-specific fix where Codex and GitHub Copilot profiles render correctly in single-profile menu bar mode via `ProviderUsageSnapshot`-backed synthetic usage rows.
 - **Credential entry UI**: Manual session/API key entry is now always visible beneath the browser sign-in action instead of being hidden inside a collapsed disclosure group.
 - **CLI account copy cleanup**: Removed the incorrect tracking note from the CLI Account settings view.

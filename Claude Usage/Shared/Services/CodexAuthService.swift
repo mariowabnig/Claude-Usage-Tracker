@@ -13,10 +13,13 @@ import Foundation
 class CodexAuthService {
     static let shared = CodexAuthService()
 
-    private init() {}
+    private let authFileOverride: URL?
+
+    init(authFileURL: URL? = nil) { self.authFileOverride = authFileURL }
 
     /// Path to the Codex auth file
     var authFilePath: URL {
+        if let authFileOverride { return authFileOverride }
         let home = Constants.ClaudePaths.homeDirectory
         return home.appendingPathComponent(".codex").appendingPathComponent("auth.json")
     }

@@ -1,119 +1,23 @@
 # Security Policy
 
-## Supported Versions
+This document describes the custom `mariowabnig/Claude-Usage-Tracker` fork on `main`. Upstream release binaries can have different behavior; build this fork from source to use its changes.
 
-We release security updates for the latest stable version only. Please ensure you're running the most recent version before reporting issues.
+## Credential storage
 
-| Version | Supported          |
-| ------- | ------------------ |
-| 1.6.x   | :white_check_mark: |
-| < 1.6   | :x:                |
+Profile session keys, CLI OAuth JSON, Codex API keys, and saved GitHub tokens are stored in the encrypted macOS login Keychain under `com.claudeusagetracker.profile-credentials`. UserDefaults contains redacted profile metadata and usage history, not these secrets.
 
-[Download the latest version](https://github.com/hamed-elfayome/Claude-Usage-Tracker/releases/latest)
+On first launch of the updated app, `profiles_v3` credentials are copied to a vault revision and read back for verification. Only then is redacted `profiles_v4` metadata committed and the old plaintext preference removed. If Keychain access fails, the app preserves the previous save, reports the error, and does not fall back to writing new plaintext credentials. Historical backups of preferences are not modified.
 
-## Reporting a Vulnerability
+The login Keychain supports unsigned local builds without data-protection entitlements. Its normal application access controls remain enabled: macOS may ask you to authorize Keychain access after rebuilding the app. Unlock the login Keychain and restart if storage is unavailable. Do not grant unrelated applications access to the vault.
 
-We take security seriously. If you discover a security vulnerability, please report it responsibly.
+Provider CLI authentication files and CLI-owned Keychain items remain owned by those tools; this migration does not delete or rewrite them. Explicit CLI account switching remains an opt-in setting. Automatic sync requires matching token continuity and never guesses that the currently logged-in account belongs to every saved profile.
 
-### How to Report
+## Network and local data
 
-**Please do NOT report security vulnerabilities through public GitHub issues.**
+The app contacts provider services over HTTPS: Claude/Anthropic usage and status services, ChatGPT-backed Codex usage, and GitHub Copilot authentication/usage. Credentials are supplied to the relevant provider endpoints. Usage history and optional network debug logs are local data; review debug exports before sharing them.
 
-Instead, use GitHub's private security advisory feature:
+The app runs without App Sandbox to support local CLI integration. Protect your macOS account and backups. This fork's local builds are unsigned unless you configure your own signing identity.
 
-1. Go to the [Security tab](https://github.com/hamed-elfayome/Claude-Usage-Tracker/security/advisories)
-2. Click "Report a vulnerability"
-3. Provide detailed information about the vulnerability
+## Reporting
 
-### What to Include
-
-To help us assess and address the issue quickly, please include:
-
-- **Type of vulnerability** (e.g., credential exposure, code injection, privilege escalation)
-- **Step-by-step reproduction** instructions
-- **Affected versions** (if known)
-- **Potential impact** assessment
-- **Proof of concept** code (if applicable)
-- **Suggested fix** (if you have one)
-
-### Response Timeline
-
-- **Acknowledgment**: Within 24-48 hours
-- **Initial assessment**: Within 1 week
-- **Resolution timeline**: Depends on severity and complexity
-
-We'll keep you informed throughout the process and credit you in the security advisory and release notes (unless you prefer to remain anonymous).
-
-## Security Considerations
-
-### Session Key Storage
-
-- Session keys are stored locally in `~/.claude-session-key`
-- File permissions are automatically set to `0600` (owner read/write only)
-- Keys are never transmitted except to `claude.ai` via HTTPS
-- No cloud sync or external storage
-
-### Application Signing
-
-- The app is currently **unsigned** (no Apple Developer certificate)
-- macOS Gatekeeper will block the app on first launch
-- Users must manually approve via System Settings → Privacy & Security
-- **This is expected behavior** for community open-source apps
-
-### Network Security
-
-- All communication uses **HTTPS only**
-- API requests are sent exclusively to `claude.ai` endpoints
-- No telemetry, analytics, or third-party tracking
-- Session authentication via secure cookies only
-
-### Code Execution
-
-- Claude Code integration scripts are installed to `~/.claude/`
-- Script permissions are set to `755` (read/execute for all, write for owner)
-- Scripts only read the existing session key file
-- No arbitrary code execution from external sources
-
-### Sandboxing
-
-- App Sandbox is **disabled** to allow file system access
-- Required for reading `~/.claude-session-key` and writing `~/.claude/` scripts
-- Necessary trade-off for the app's core functionality
-
-## Best Practices for Users
-
-### Protect Your Session Key
-
-- Never share your session key publicly
-- Treat it like a password
-- Rotate it if you suspect compromise (extract a fresh key from claude.ai)
-- Check file permissions: `ls -la ~/.claude-session-key` should show `-rw-------`
-
-### Verify Downloads
-
-- Download only from official sources:
-  - [GitHub Releases](https://github.com/hamed-elfayome/Claude-Usage-Tracker/releases)
-  - [Homebrew Tap](https://github.com/ggfevans/homebrew-claude-usage-tracker)
-- Build from source if you prefer: `git clone` + Xcode build
-
-### Keep Updated
-
-- Security patches are released for the latest version only
-- Enable notifications for new releases on GitHub
-- Review the [CHANGELOG.md](CHANGELOG.md) for security-related updates
-
-## Security Acknowledgments
-
-We recognize and appreciate security researchers who help keep our community safe. Contributors who responsibly disclose vulnerabilities will be:
-
-- Credited in the security advisory (with permission)
-- Acknowledged in release notes
-- Listed as security contributors in the project
-
-Thank you for helping keep Claude Usage Tracker secure!
-
-## Questions?
-
-For non-security related issues, please use [GitHub Issues](https://github.com/hamed-elfayome/Claude-Usage-Tracker/issues).
-
-For general questions, see our [Contributing Guide](CONTRIBUTING.md).
+Do not post tokens or credential payloads in public issues. For vulnerabilities affecting upstream, use [upstream private security reporting](https://github.com/hamed-elfayome/Claude-Usage-Tracker/security/advisories). For fork-specific problems, report privately to the fork owner without including real credentials. Use synthetic reproductions whenever possible.

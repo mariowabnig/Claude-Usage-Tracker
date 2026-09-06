@@ -15,12 +15,12 @@ class ClaudeUsageProviderFetcher: UsageProviderFetcher {
 
     private let apiService: ClaudeAPIService
 
-    init(apiService: ClaudeAPIService = ClaudeAPIService()) {
-        self.apiService = apiService
+    init(apiService: ClaudeAPIService? = nil) {
+        self.apiService = apiService ?? ClaudeAPIService()
     }
 
     func fetchUsage(for profile: Profile) async throws -> ProviderUsageSnapshot {
-        var claudeUsage = try await fetchClaudeUsage(for: profile)
+        let claudeUsage = try await fetchClaudeUsage(for: profile)
 
         // Fetch API usage separately (non-fatal if it fails)
         var apiUsage: APIUsage? = nil
@@ -56,6 +56,7 @@ class ClaudeUsageProviderFetcher: UsageProviderFetcher {
 
         // Priority 3: System Keychain CLI OAuth token
         if let systemCredentials = try? ClaudeCodeSyncService.shared.readSystemCredentials(),
+           ClaudeCodeSyncService.credentialsMatch(profile.cliCredentialsJSON, systemCredentials),
            !ClaudeCodeSyncService.shared.isTokenExpired(systemCredentials),
            let accessToken = ClaudeCodeSyncService.shared.extractAccessToken(from: systemCredentials) {
             var usage = try await apiService.fetchUsageData(oauthAccessToken: accessToken)

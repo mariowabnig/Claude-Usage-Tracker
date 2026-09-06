@@ -1,6 +1,7 @@
 import XCTest
 @testable import Claude_Usage
 
+@MainActor
 final class DateExtensionsTests: XCTestCase {
 
     // MARK: - Next Monday Tests

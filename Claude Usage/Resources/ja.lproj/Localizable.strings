@@ -970,15 +970,7 @@
 "menubar.cost_source.api" = "API";
 "menubar.cost_source.unknown" = "その他";
 
-// MARK: - Peak Hours
-"peak.banner.ends_in" = "ピーク時間 — あと%@で終了（%@）";
-"peak.banner.starts_in" = "あと%@でピーク時間（%@）";
-"peak.footer.schedule" = "ピーク：%@ 月〜金";
-"peak.footer.no_peak_today" = "本日はピーク時間なし";
-"peak.footer.starts_in" = "あと%@で開始";
-"peak.footer.ends_in" = "あと%@で終了";
-"peak.notification.title" = "まもなくピーク時間です";
-"peak.notification.body" = "ピーク時間は%@に始まり、利用コストが高くなります。負荷の高い作業は今のうちがお得です。";
+// MARK: - Usage Pace and Trend
 "peak.pace.much_faster" = "▸ もっと速いペースで利用できます";
 "peak.pace.faster" = "▸ %.1fx速いペースで利用できます";
 "peak.pace.perfect" = "▸ 100%%に最適なペースです";
@@ -986,8 +978,6 @@
 "peak.trend.same" = "≈ 先週と同じ";
 "peak.trend.more" = "↑ 先週より%d%%多い";
 "peak.trend.less" = "↓ 先週より%d%%少ない";
-"peak.tooltip.peak_active" = "ピーク時間中 — %@に終了";
-"peak.tooltip.usage" = "%@：%d%%使用済み";
 
 // MARK: - Command Palette
 "command_palette.placeholder" = "コマンドを検索…";

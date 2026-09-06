@@ -244,7 +244,7 @@ struct CommandPaletteView: View {
                     .textFieldStyle(.plain)
                     .font(.system(size: 14))
                     .focused($isSearchFocused)
-                    .onChange(of: searchText) { _ in
+                    .onChange(of: searchText) { _, _ in
                         selectedIndex = 0
                     }
 
@@ -321,7 +321,7 @@ struct CommandPaletteView: View {
                     }
                     .padding(.vertical, 4)
                 }
-                .onChange(of: selectedIndex) { newIndex in
+                .onChange(of: selectedIndex) { _, newIndex in
                     let cmds = flatCommands
                     if cmds.indices.contains(newIndex) {
                         withAnimation(.easeOut(duration: 0.1)) {

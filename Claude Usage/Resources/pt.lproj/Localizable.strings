@@ -970,15 +970,7 @@
 "settings.updates" = "Atualizações";
 "settings.updates.description" = "Mantenha a aplicação atualizada";
 
-// MARK: - Peak Hours
-"peak.banner.ends_in" = "Horário de pico — termina em %@ (%@)";
-"peak.banner.starts_in" = "Horário de pico em %@ (%@)";
-"peak.footer.schedule" = "Pico: %@ seg–sex";
-"peak.footer.no_peak_today" = "Hoje não há horário de pico";
-"peak.footer.starts_in" = "começa em %@";
-"peak.footer.ends_in" = "termina em %@";
-"peak.notification.title" = "O horário de pico começa em breve";
-"peak.notification.body" = "O horário de pico começa às %@ — a utilização custará mais. O trabalho intensivo agora será mais barato.";
+// MARK: - Usage Pace and Trend
 "peak.pace.much_faster" = "▸ Pode avançar muito mais depressa";
 "peak.pace.faster" = "▸ Pode avançar %.1fx mais depressa";
 "peak.pace.perfect" = "▸ Ritmo perfeito para 100%%";
@@ -986,8 +978,6 @@
 "peak.trend.same" = "≈ igual à semana passada";
 "peak.trend.more" = "↑ %d%% mais do que na semana passada";
 "peak.trend.less" = "↓ %d%% menos do que na semana passada";
-"peak.tooltip.peak_active" = "Horário de pico ativo — termina %@";
-"peak.tooltip.usage" = "%@: %d%% utilizado";
 
 // MARK: - Command Palette
 "command_palette.placeholder" = "Pesquisar comandos…";

@@ -503,11 +503,6 @@ struct SmartUsageDashboard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            // Peak hours banner (Claude-specific, shown for Claude provider)
-            if snapshot.provider == .claude {
-                PeakHoursBanner()
-            }
-
             // Render provider-neutral metric rows
             ForEach(snapshot.primaryRows) { row in
                 UsageRow(
@@ -521,8 +516,7 @@ struct SmartUsageDashboard: View {
                     showTimeMarker: row.supportsPaceMarkers ? showTimeMarker : false,
                     showPaceMarker: row.supportsPaceMarkers ? showPaceMarker : false,
                     usePaceColoring: row.supportsPaceMarkers ? usePaceColoring : false,
-                    timeDisplay: timeDisplay,
-                    showPeakStripes: snapshot.provider == .claude
+                    timeDisplay: timeDisplay
                 )
             }
 
@@ -604,7 +598,6 @@ struct UsageRow: View {
     var showPaceMarker: Bool = true
     var usePaceColoring: Bool = true
     var timeDisplay: PopoverTimeDisplay = .resetTime
-    var showPeakStripes: Bool = false
 
     private var displayPercentage: Double {
         UsageStatusCalculator.getDisplayPercentage(
@@ -746,10 +739,6 @@ struct UsageRow: View {
                         RoundedRectangle(cornerRadius: 2.5)
                             .fill(statusColor)
 
-                        if showPeakStripes && PeakHoursHelper.isPeakHours {
-                            PeakStripes()
-                                .clipShape(RoundedRectangle(cornerRadius: 2.5))
-                        }
                     }
                     .frame(width: fillWidth)
                     .animation(.easeInOut(duration: 0.6), value: displayPercentage)
@@ -884,18 +873,10 @@ struct Insight {
     let description: String
 }
 
-// MARK: - Popover Info Footer (peak schedule + weekly trend)
+// MARK: - Popover Info Footer (weekly trend)
 
 struct PopoverInfoFooter: View {
     @StateObject private var profileManager = ProfileManager.shared
-    @State private var peakCountdown: (isPeak: Bool, timeRemaining: TimeInterval)?
-    private let timer = Timer.publish(every: 30, on: .main, in: .common).autoconnect()
-
-    private var isWeekend: Bool {
-        let weekday = Calendar.current.component(.weekday, from: Date())
-        return weekday == 1 || weekday == 7
-    }
-
     private var weeklyTrend: String? {
         guard let profileId = profileManager.activeProfile?.id else { return nil }
         let snapshots = UsageHistoryService.shared.getWeeklySnapshots(for: profileId)
@@ -915,43 +896,9 @@ struct PopoverInfoFooter: View {
         }
     }
 
-    private var peakCountdownText: String? {
-        guard let cd = peakCountdown, cd.timeRemaining > 0 else { return nil }
-        let countdown = PeakHoursHelper.formatCountdown(cd.timeRemaining)
-        if cd.isPeak {
-            return String(format: "peak.footer.ends_in".localized, countdown)
-        } else {
-            return String(format: "peak.footer.starts_in".localized, countdown)
-        }
-    }
-
     var body: some View {
         VStack(spacing: 3) {
             PopoverDivider()
-
-            HStack {
-                Image(systemName: isWeekend ? "sun.max" : "clock")
-                    .font(.system(size: 8))
-                    .foregroundColor(.secondary)
-                Text(isWeekend
-                    ? "peak.footer.no_peak_today".localized
-                    : "peak.footer.schedule".localized(with: PeakHoursHelper.localScheduleString))
-                    .font(.system(size: 9))
-                    .foregroundColor(.secondary)
-
-                if !isWeekend, let countdownText = peakCountdownText {
-                    Text("·")
-                        .font(.system(size: 9))
-                        .foregroundColor(.secondary.opacity(0.5))
-                    Text(countdownText)
-                        .font(.system(size: 9, weight: .medium))
-                        .foregroundColor(.secondary)
-                }
-
-                Spacer()
-            }
-            .padding(.horizontal, 14)
-            .padding(.top, 4)
 
             if let trend = weeklyTrend {
                 HStack {
@@ -966,8 +913,6 @@ struct PopoverInfoFooter: View {
                 .padding(.horizontal, 14)
             }
         }
-        .onAppear { peakCountdown = PeakHoursHelper.countdown() }
-        .onReceive(timer) { _ in peakCountdown = PeakHoursHelper.countdown() }
     }
 }
 
@@ -1433,100 +1378,5 @@ struct StatusBannerView: View {
         .padding(.horizontal, 10)
         .padding(.top, 4)
         .onTapGesture { onTap?() }
-    }
-}
-
-// MARK: - Peak Hours Stripe Overlay
-
-/// Diagonal amber stripes overlaid on progress bars during peak hours.
-/// The normal usage color (green/orange/red) shows through between stripes.
-struct PeakStripes: View {
-    var stripeWidth: CGFloat = 2
-    var gapWidth: CGFloat = 3
-    var angle: Double = 45
-
-    var body: some View {
-        GeometryReader { geometry in
-            let total = stripeWidth + gapWidth
-            // Extend canvas to cover diagonal overflow
-            let canvasSize = max(geometry.size.width, geometry.size.height) * 2
-            Path { path in
-                var x: CGFloat = -canvasSize
-                while x < canvasSize {
-                    path.addRect(CGRect(x: x, y: -canvasSize / 2, width: stripeWidth, height: canvasSize * 2))
-                    x += total
-                }
-            }
-            .fill(Color.peakAmber.opacity(0.55))
-            .rotationEffect(.degrees(angle))
-            .frame(width: canvasSize, height: canvasSize)
-            .offset(x: (geometry.size.width - canvasSize) / 2, y: (geometry.size.height - canvasSize) / 2)
-        }
-        .clipped()
-    }
-}
-
-// MARK: - Peak Hours Banner
-
-struct PeakHoursBanner: View {
-    @State private var isPeak: Bool = PeakHoursHelper.isPeakHours
-    @State private var timeRemaining: TimeInterval = 0
-    @State private var localTime: String = ""
-    private let timer = Timer.publish(every: 30, on: .main, in: .common).autoconnect()
-
-    var body: some View {
-        VStack {
-            if isPeak {
-                HStack(spacing: 6) {
-                    Image(systemName: "bolt.fill")
-                        .font(.system(size: 10))
-                    Text(peakText)
-                        .font(.system(size: 10, weight: .medium))
-                }
-                .foregroundColor(.black)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 5)
-                .background(
-                    RoundedRectangle(cornerRadius: 6)
-                        .fill(Color.peakAmber.opacity(0.85))
-                )
-            } else if timeRemaining > 0 && timeRemaining <= 2 * 3600 {
-                HStack(spacing: 6) {
-                    Image(systemName: "clock")
-                        .font(.system(size: 10))
-                    Text(offPeakText)
-                        .font(.system(size: 10, weight: .medium))
-                }
-                .foregroundColor(.secondary)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 5)
-                .background(
-                    RoundedRectangle(cornerRadius: 6)
-                        .fill(Color.primary.opacity(0.05))
-                )
-            }
-        }
-        .onAppear { update() }
-        .onReceive(timer) { _ in update() }
-    }
-
-    private var peakText: String {
-        let countdown = PeakHoursHelper.formatCountdown(timeRemaining)
-        let time = localTime.isEmpty ? "" : localTime
-        return "peak.banner.ends_in".localized(with: countdown, time)
-    }
-
-    private var offPeakText: String {
-        let countdown = PeakHoursHelper.formatCountdown(timeRemaining)
-        let time = localTime.isEmpty ? "" : localTime
-        return "peak.banner.starts_in".localized(with: countdown, time)
-    }
-
-    private func update() {
-        isPeak = PeakHoursHelper.isPeakHours
-        if let cd = PeakHoursHelper.countdown() {
-            timeRemaining = cd.timeRemaining
-        }
-        localTime = PeakHoursHelper.localTargetTime() ?? ""
     }
 }

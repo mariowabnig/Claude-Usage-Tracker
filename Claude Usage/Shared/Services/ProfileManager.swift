@@ -18,12 +18,14 @@ class ProfileManager: ObservableObject {
     @Published var multiProfileConfig: MultiProfileDisplayConfig = .default
     @Published var isSwitchingProfile: Bool = false
 
-    private let profileStore = ProfileStore.shared
+    private let profileStore: ProfileStore
     private let cliSyncService = ClaudeCodeSyncService.shared
 
     private var switchingSemaphore = false
 
-    private init() {}
+    init(profileStore: ProfileStore? = nil) {
+        self.profileStore = profileStore ?? .shared
+    }
 
     // MARK: - Initialization
 
@@ -531,7 +533,7 @@ class ProfileManager: ObservableObject {
     /// Re-syncs CLI credentials for profiles whose stored token is expired but fresh system creds exist.
     /// Called on every app launch so profiles don't stay stuck with stale tokens after `claude auth login`.
     private func refreshStaleCLICredentials() {
-        for (index, profile) in profiles.enumerated() {
+        for profile in profiles {
             guard profile.providerKind == .claude,
                   profile.hasCliAccount || profile.cliCredentialsJSON != nil else { continue }
 
@@ -544,12 +546,17 @@ class ProfileManager: ObservableObject {
             do {
                 guard let systemCreds = try cliSyncService.readSystemCredentials(),
                       !cliSyncService.isTokenExpired(systemCreds),
-                      cliSyncService.extractAccessToken(from: systemCreds) != nil else {
+                      cliSyncService.extractAccessToken(from: systemCreds) != nil,
+                      ClaudeCodeSyncService.credentialsMatch(profile.cliCredentialsJSON, systemCreds) else {
                     continue
                 }
 
-                try cliSyncService.syncToProfile(profile.id)
-                profiles = profileStore.loadProfiles()
+                // Save the exact credentials checked above (do not reread a
+                // potentially changed CLI account between validation and save).
+                guard let index = profiles.firstIndex(where: { $0.id == profile.id }) else { continue }
+                profiles[index].cliCredentialsJSON = systemCreds
+                profiles[index].cliAccountSyncedAt = Date()
+                profileStore.saveProfiles(profiles)
 
                 // Update activeProfile reference if it was refreshed
                 if activeProfile?.id == profile.id {

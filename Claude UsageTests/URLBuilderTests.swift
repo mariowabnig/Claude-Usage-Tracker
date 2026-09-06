@@ -8,6 +8,7 @@
 import XCTest
 @testable import Claude_Usage
 
+@MainActor
 final class URLBuilderTests: XCTestCase {
 
     // MARK: - Initialization Tests

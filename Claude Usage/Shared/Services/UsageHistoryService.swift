@@ -31,8 +31,8 @@ class UsageHistoryService {
     private let sessionRecordingInterval: TimeInterval = 10 * 60  // 10 minutes
     private let weeklyRecordingInterval: TimeInterval = 2 * 60 * 60  // 2 hours
 
-    private init() {
-        self.defaults = UserDefaults.standard
+    init(defaults: UserDefaults = .standard) {
+        self.defaults = defaults
     }
 
     // MARK: - Persistent Timestamp Tracking

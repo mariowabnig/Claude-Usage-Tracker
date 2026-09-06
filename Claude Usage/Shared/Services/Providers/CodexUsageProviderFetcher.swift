@@ -31,18 +31,7 @@ class CodexUsageProviderFetcher: UsageProviderFetcher {
               let accessToken = authState.resolvedAccessToken,
               !accessToken.isEmpty
         else {
-            return ProviderUsageSnapshot(
-                provider: .codex,
-                title: "Codex",
-                subtitle: "Not connected",
-                primaryRows: [],
-                secondaryCards: [
-                    ProviderSupplementaryCard(
-                        id: "codex-status",
-                        kind: .providerStatus(connected: false, statusText: validation.statusText)
-                    )
-                ]
-            )
+            throw AppError(code: .apiUnauthorized, message: "Codex authentication is unavailable or expired.")
         }
 
         do {
@@ -122,19 +111,7 @@ class CodexUsageProviderFetcher: UsageProviderFetcher {
             )
         } catch {
             LoggingService.shared.logError("Codex usage fetch failed: \(error.localizedDescription)")
-            return ProviderUsageSnapshot(
-                provider: .codex,
-                title: "Codex",
-                subtitle: "Connection issue",
-                primaryRows: [],
-                secondaryCards: [
-                    ProviderSupplementaryCard(
-                        id: "codex-status",
-                        kind: .providerStatus(connected: false, statusText: "Usage fetch failed")
-                    )
-                ],
-                fetchedAt: Date()
-            )
+            throw error
         }
     }
 
@@ -156,9 +133,10 @@ class CodexUsageProviderFetcher: UsageProviderFetcher {
         }
 
         guard (200...299).contains(httpResponse.statusCode) else {
-            throw URLError(httpResponse.statusCode == 401 || httpResponse.statusCode == 403
-                ? .userAuthenticationRequired
-                : .badServerResponse)
+            if httpResponse.statusCode == 401 || httpResponse.statusCode == 403 {
+                throw AppError(code: .apiUnauthorized, message: "Codex authentication was rejected. Reconnect your account.")
+            }
+            throw URLError(.badServerResponse)
         }
 
         return try JSONDecoder().decode(CodexUsageAPIResponse.self, from: data)

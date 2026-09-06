@@ -970,15 +970,7 @@
 "settings.updates" = "Aggiornamenti";
 "settings.updates.description" = "Mantieni aggiornata l’app";
 
-// MARK: - Peak Hours
-"peak.banner.ends_in" = "Ore di punta — terminano tra %@ (%@)";
-"peak.banner.starts_in" = "Ore di punta tra %@ (%@)";
-"peak.footer.schedule" = "Punta: %@ lun–ven";
-"peak.footer.no_peak_today" = "Nessuna ora di punta oggi";
-"peak.footer.starts_in" = "iniziano tra %@";
-"peak.footer.ends_in" = "terminano tra %@";
-"peak.notification.title" = "Le ore di punta iniziano presto";
-"peak.notification.body" = "Le ore di punta iniziano alle %@ — l’utilizzo costerà di più. I lavori intensivi ora costano meno.";
+// MARK: - Usage Pace and Trend
 "peak.pace.much_faster" = "▸ Puoi andare molto più veloce";
 "peak.pace.faster" = "▸ Puoi andare %.1fx più veloce";
 "peak.pace.perfect" = "▸ Ritmo perfetto per il 100%%";
@@ -986,8 +978,6 @@
 "peak.trend.same" = "≈ come la settimana scorsa";
 "peak.trend.more" = "↑ %d%% in più della settimana scorsa";
 "peak.trend.less" = "↓ %d%% in meno della settimana scorsa";
-"peak.tooltip.peak_active" = "Ore di punta attive — termine %@";
-"peak.tooltip.usage" = "%@: %d%% utilizzato";
 
 // MARK: - Command Palette
 "command_palette.placeholder" = "Cerca comandi…";

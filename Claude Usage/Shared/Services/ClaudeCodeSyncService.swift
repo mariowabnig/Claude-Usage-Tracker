@@ -486,6 +486,22 @@ class ClaudeCodeSyncService {
         return Date() > expiryDate
     }
 
+    /// Opaque OAuth tokens do not expose a stable account identity. A shared,
+    /// nonempty refresh/access token proves the same login; otherwise require
+    /// the user to explicitly reconnect rather than guessing after rotation.
+    static func credentialsMatch(_ stored: String?, _ candidate: String) -> Bool {
+        func oauth(_ text: String?) -> [String: Any]? {
+            guard let text, let data = text.data(using: .utf8),
+                  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return nil }
+            return json["claudeAiOauth"] as? [String: Any]
+        }
+        guard let old = oauth(stored), let new = oauth(candidate) else { return false }
+        return ["refreshToken", "accessToken"].contains { key in
+            guard let token = old[key] as? String, !token.isEmpty else { return false }
+            return token == new[key] as? String
+        }
+    }
+
     // MARK: - Auto Re-sync Before Switching
 
     /// Re-syncs credentials from system Keychain before profile switching
@@ -513,6 +529,10 @@ class ClaudeCodeSyncService {
             return
         }
 
+        guard Self.credentialsMatch(profiles[index].cliCredentialsJSON, freshJSON) else {
+            LoggingService.shared.log("Skipping automatic CLI sync: account identity could not be verified")
+            return
+        }
         profiles[index].cliCredentialsJSON = freshJSON
         profiles[index].cliAccountSyncedAt = Date()  // Update sync timestamp
         ProfileStore.shared.saveProfiles(profiles)

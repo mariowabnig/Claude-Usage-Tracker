@@ -375,8 +375,7 @@ final class StatusBarUIManager {
                 singleColorHex: profileConfig.singleColorHex,
                 showIconName: profileConfig.showIconNames,
                 showNextSessionTime: metricConfig.showNextSessionTime,
-                profilePrefix: prefix,
-                showPeakEffects: profile.providerKind == .claude
+                profilePrefix: prefix
             )
 
             image.isTemplate = profileConfig.colorMode == .monochrome && !profileConfig.showPaceMarker
@@ -826,7 +825,7 @@ final class StatusBarUIManager {
         // Get config from active profile
         let profile = ProfileManager.shared.activeProfile
         let config = profile?.iconConfig ?? .default
-        let showPeakEffects = profile?.providerKind == .claude
+
 
         // Check if we should show default logo (no usage credentials OR no enabled metrics)
         let hasUsageCredentials = hasRenderableUsageCredentials(for: profile)
@@ -864,14 +863,13 @@ final class StatusBarUIManager {
                 colorMode: config.colorMode,
                 singleColorHex: config.singleColorHex,
                 showIconName: config.showIconNames,
-                showNextSessionTime: metricConfig.showNextSessionTime,
-                showPeakEffects: showPeakEffects
+                showNextSessionTime: metricConfig.showNextSessionTime
             )
 
             image.isTemplate = config.colorMode == .monochrome && !config.showPaceMarker
             button.image = image
 
-            // Tooltip with usage + peak hours info
+            // Usage tooltip
             let metricName = metricConfig.metricType == .session ? "Session" : (metricConfig.metricType == .week ? "Week" : "API")
             let pct: Int
             switch metricConfig.metricType {
@@ -879,9 +877,7 @@ final class StatusBarUIManager {
             case .week: pct = Int(usage.weeklyPercentage)
             case .api: pct = Int(apiUsage?.usagePercentage ?? 0)
             }
-            button.toolTip = showPeakEffects
-                ? PeakHoursHelper.tooltip(metricName: metricName, percentage: pct)
-                : "\(metricName): \(pct)%"
+            button.toolTip = "\(metricName): \(pct)%"
         }
     }
 
@@ -958,8 +954,7 @@ final class StatusBarUIManager {
                 singleColorHex: config.singleColorHex,
                 showIconName: config.showIconNames,
                 showNextSessionTime: metricConfig.showNextSessionTime,
-                profilePrefix: profile.providerKind.menuBarPrefix,
-                showPeakEffects: profile.providerKind == .claude
+                profilePrefix: profile.providerKind.menuBarPrefix
             )
 
             image.isTemplate = config.colorMode == .monochrome && !config.showPaceMarker
@@ -982,7 +977,7 @@ final class StatusBarUIManager {
         // Get config from active profile
         let profile = ProfileManager.shared.activeProfile
         let config = profile?.iconConfig ?? .default
-        let showPeakEffects = profile?.providerKind == .claude
+
         guard let metricConfig = config.config(for: metricType) else {
             return
         }
@@ -1001,8 +996,7 @@ final class StatusBarUIManager {
             colorMode: config.colorMode,
             singleColorHex: config.singleColorHex,
             showIconName: config.showIconNames,
-            showNextSessionTime: metricConfig.showNextSessionTime,
-            showPeakEffects: showPeakEffects
+            showNextSessionTime: metricConfig.showNextSessionTime
         )
 
         image.isTemplate = config.colorMode == .monochrome && !config.showPaceMarker
@@ -1015,9 +1009,7 @@ final class StatusBarUIManager {
         case .week: pct = Int(usage.weeklyPercentage)
         case .api: pct = Int(apiUsage?.usagePercentage ?? 0)
         }
-        button.toolTip = showPeakEffects
-            ? PeakHoursHelper.tooltip(metricName: metricName, percentage: pct)
-            : "\(metricName): \(pct)%"
+        button.toolTip = "\(metricName): \(pct)%"
     }
 
     /// Get button for a specific metric (used for popover positioning)
